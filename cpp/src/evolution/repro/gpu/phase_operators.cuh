@@ -10,7 +10,7 @@
 // redundantly executing a child; only memory traffic and scans are spread over
 // lanes, never the order of random draws or floating-point accumulation.
 namespace gagp::evo::repro::phase_ops {
-constexpr int capacity = 1024, code_capacity = 4*capacity;
+constexpr int capacity = kPhaseRowNodes, code_capacity = 4*capacity;
 
 struct TreePointers {
  PhaseTreeNode* nodes;int* origins;PhaseGeneSite* sites;Value* constants;PhaseGenerationResult* lengths;
@@ -144,17 +144,41 @@ template<bool Warp> __host__ __device__ inline PhaseGenerationResult splice(cons
  return splice_phase_tree<true>(base,destination,donor,source,output,max_depth,site_depth);
 }
 
-// A statement program must read only definitely assigned grammar locals.
+// A statement program must read only definitely assigned grammar locals, and
+// a phase that can hold bounded regions at most kPhaseMaxRegions of them.
 template<bool Warp> __host__ __device__ inline bool locals_defined(const DeviceSlot& slot,const PhaseTreeNode* nodes,int count) {
- if(slot.type!=kPhaseStatement)return true;
+ if(slot.type!=kPhaseStatement && !slot.grammar.region_count)return true;
 #ifdef __CUDA_ARCH__
  if constexpr(Warp)__syncwarp();
 #endif
- return phase_locals_defined(nodes,count);
+ if(slot.grammar.region_count && phase_region_count(nodes,count)>kPhaseMaxRegions)return false;
+ return slot.type!=kPhaseStatement || phase_locals_defined(nodes,count);
+}
+
+// A profile with repeated template holes rebuilds every later occurrence from
+// the first after a splice (share_phase_tree), through the child's scratch row.
+// The rebuilt row must fit the remaining whole-program node budget, the depth
+// and the site depth; otherwise the variation is rejected like any other.
+template<bool Warp> __host__ __device__ inline bool share_row(const DeviceSlot& slot,TreePointers trees,int row,
+    PhaseGenerationResult& r,TreePointers scratch,int scratch_row,int max_nodes) {
+#ifdef __CUDA_ARCH__
+ if constexpr(Warp)__syncwarp();
+#endif
+ const auto o=trees.output(row);const PhaseTreeView in{o.nodes,o.origins,o.sites,o.constants,r.nodes,r.constants};
+ const auto shared=share_phase_tree<true>(slot.grammar,slot.root,slot.scope,in,scratch.output(scratch_row));
+#ifdef __CUDA_ARCH__
+ if constexpr(Warp)__syncwarp();
+#endif
+ if(shared.status!=PhaseCompileStatus::Ok || shared.nodes>max_nodes)return false;
+ const auto t=scratch.output(scratch_row);const int depth=phase_tree_depth(t.nodes,shared.nodes);
+ if(depth<0 || depth>slot.max_depth)return false;
+ if(slot.logical_depth){const int height=phase_site_depth(t.nodes,t.sites,shared.nodes);if(height<0 || height>slot.logical_depth)return false;}
+ scratch.lengths[scratch_row]=shared;copy_row<Warp>(scratch,scratch_row,trees,row);r=shared;
+ return true;
 }
 
 template<bool Warp=false>
-__host__ __device__ inline void crossover_child(int child,TreePointers input,TreePointers output,const DeviceSlot* slots,
+__host__ __device__ inline void crossover_child(int child,TreePointers input,TreePointers output,TreePointers scratch,const DeviceSlot* slots,
     int slot_count,int population,int max_variable_nodes,const double* fitness,int pressure,std::uint64_t seed,
     const OperatorPolicy& policy,OperatorStats& stat) {
  DGrammarRandom random(seed ^ (UINT64_C(0x617089e168) + child));stat={};
@@ -185,7 +209,9 @@ __host__ __device__ inline void crossover_child(int child,TreePointers input,Tre
   if(total-(ae-destination.node)+(be-source.node)>max_variable_nodes){++stat.crossover_rejected;continue;}
   const int slot=destination.row%slot_count,target=child*slot_count+slot;
   const DeviceSlot s=slots[slot];
-  const auto r=splice<Warp>(a,destination.node,b,source.node,output.output(target),s.max_depth,s.logical_depth);
+  auto r=splice<Warp>(a,destination.node,b,source.node,output.output(target),s.max_depth,s.logical_depth);
+  if(r.status==PhaseCompileStatus::Ok && s.grammar.shared &&
+     !share_row<Warp>(s,output,target,r,scratch,child,max_variable_nodes-(total-a.node_count)))r.status=PhaseCompileStatus::Capacity;
   if(r.status==PhaseCompileStatus::Ok && locals_defined<Warp>(s,output.output(target).nodes,r.nodes)){
    output.lengths[target]=r;stat.crossover=1;
    if(policy.deferred_copy)for(int k=0;k<slot_count;++k)if(k!=slot)copy_row<Warp>(input,parent*slot_count+k,output,child*slot_count+k);
@@ -234,9 +260,11 @@ __host__ __device__ inline void mutate_child(int child,TreePointers input,TreePo
  // Splicing may partially write on failure, so its destination must never
  // alias the crossed input. Each child owns a separate temporary row.
  const int target=child;
- const auto r=splice<Warp>(a,destination.node,scratch.view(child),0,output.output(target),slot.max_depth,
+ auto r=splice<Warp>(a,destination.node,scratch.view(child),0,output.output(target),slot.max_depth,
      slot.logical_depth);
  if(r.status!=PhaseCompileStatus::Ok){stat.error=8;return;}
+ // Copies of a repeated hole that no longer fit skip this mutation.
+ if(slot.grammar.shared && !share_row<Warp>(slot,output,target,r,scratch,child,max_variable_nodes-(total-a.node_count)))return;
  // An undefined local read rejects this mutation; the crossed child stands.
  if(!locals_defined<Warp>(slot,output.output(target).nodes,r.nodes))return;
  output.lengths[target]=r;

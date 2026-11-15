@@ -1,0 +1,344 @@
+{
+ "format_version": "grammar-definition-v2",
+ "entry": {
+  "nonterminal": "E",
+  "type": "Int"
+ },
+ "inputs": [
+  {
+   "name": "start_a",
+   "type": "Int"
+  },
+  {
+   "name": "start_b",
+   "type": "Int"
+  }
+ ],
+ "search_limits": {
+  "max_nodes": 160,
+  "max_depth": 14
+ },
+ "execution_limits": {
+  "fuel": 200000
+ },
+ "nonterminals": [
+  {
+   "id": "E",
+   "type": "Int",
+   "scope": [],
+   "alternatives": [
+    {
+     "id": "dp",
+     "weight": 3,
+     "expression": {
+      "structured": {
+       "family": "bounded",
+       "plan": {
+        "version": 1,
+        "state_types": [
+         "Int"
+        ],
+        "result_type": "Int",
+        "parameter_types": [],
+        "preparations": [],
+        "request_expression_types": [],
+        "bound_operand_count": 0,
+        "requests": [
+         {
+          "states": [
+           {
+            "kind": "coordinate_offset",
+            "source_state": 0,
+            "offset": "-1",
+            "window": {
+             "begin": {
+              "kind": "begin",
+              "cut": 0
+             },
+             "end": {
+              "kind": "begin",
+              "cut": 0
+             }
+            },
+            "expression": 0
+           }
+          ]
+         },
+         {
+          "states": [
+           {
+            "kind": "coordinate_offset",
+            "source_state": 0,
+            "offset": "-2",
+            "window": {
+             "begin": {
+              "kind": "begin",
+              "cut": 0
+             },
+             "end": {
+              "kind": "begin",
+              "cut": 0
+             }
+            },
+            "expression": 0
+           }
+          ]
+         }
+        ],
+        "limits": {
+         "frames": 127,
+         "cells": 31,
+         "entry_fuel": 1
+        },
+        "memoized": true,
+        "duplicate_policy": "allow",
+        "progress": "coordinates",
+        "coordinate_slots": [
+         0
+        ],
+        "coordinate_rank": [
+         {
+          "coordinate": 0,
+          "direction": 1
+         }
+        ],
+        "coordinate_domains": [
+         {
+          "lower": {
+           "kind": "literal",
+           "literal": "0",
+           "operand": 0
+          },
+          "upper": {
+           "kind": "literal",
+           "literal": "30",
+           "operand": 0
+          }
+         }
+        ],
+        "coordinate_endpoint": "inclusive",
+        "sequence_state": 0
+       }
+      },
+      "fuel_events": {
+       "operation": 0
+      },
+      "captures": [],
+      "phases": [
+       {
+        "argument": 1,
+        "bindings": [
+         {
+          "bank": "state",
+          "slot": 0,
+          "name": "n"
+         }
+        ]
+       },
+       {
+        "argument": 2,
+        "bindings": [
+         {
+          "bank": "state",
+          "slot": 0,
+          "name": "n"
+         }
+        ]
+       },
+       {
+        "argument": 3,
+        "bindings": [
+         {
+          "bank": "state",
+          "slot": 0,
+          "name": "n"
+         },
+         {
+          "bank": "result",
+          "slot": 0,
+          "name": "d1"
+         },
+         {
+          "bank": "result",
+          "slot": 1,
+          "name": "d2"
+         }
+        ]
+       },
+       {
+        "argument": 4,
+        "bindings": []
+       }
+      ],
+      "args": [
+       {
+        "input": "start_b"
+       },
+       {
+        "signature": "le(Int,Int)->Bool",
+        "args": [
+         {
+          "bound": "n"
+         },
+         {
+          "constant": {
+           "type": "Int",
+           "values": [
+            "1"
+           ]
+          }
+         }
+        ]
+       },
+       {
+        "ref": "Solve"
+       },
+       {
+        "ref": "Transition"
+       },
+       {
+        "constant": {
+         "type": "Int",
+         "values": [
+          "0"
+         ]
+        }
+       }
+      ]
+     }
+    },
+    {
+     "id": "sub",
+     "weight": 2,
+     "expression": {
+      "signature": "sub(Int,Int)->Int",
+      "args": [
+       {
+        "ref": "E"
+       },
+       {
+        "ref": "E"
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "Solve",
+   "type": "Int",
+   "scope": [
+    {
+     "name": "n",
+     "type": "Int"
+    }
+   ],
+   "alternatives": [
+    {
+     "id": "n",
+     "weight": 1,
+     "expression": {
+      "bound": "n"
+     }
+    },
+    {
+     "id": "k",
+     "weight": 1,
+     "expression": {
+      "constant": {
+       "type": "Int",
+       "range": [
+        "-2",
+        "3"
+       ]
+      }
+     }
+    },
+    {
+     "id": "add",
+     "weight": 1,
+     "expression": {
+      "signature": "add(Int,Int)->Int",
+      "args": [
+       {
+        "ref": "Solve"
+       },
+       {
+        "ref": "Solve"
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "Transition",
+   "type": "Int",
+   "scope": [
+    {
+     "name": "n",
+     "type": "Int"
+    },
+    {
+     "name": "d1",
+     "type": "Int"
+    },
+    {
+     "name": "d2",
+     "type": "Int"
+    }
+   ],
+   "alternatives": [
+    {
+     "id": "n",
+     "weight": 1,
+     "expression": {
+      "bound": "n"
+     }
+    },
+    {
+     "id": "d1",
+     "weight": 1,
+     "expression": {
+      "bound": "d1"
+     }
+    },
+    {
+     "id": "d2",
+     "weight": 1,
+     "expression": {
+      "bound": "d2"
+     }
+    },
+    {
+     "id": "k",
+     "weight": 0.5,
+     "expression": {
+      "constant": {
+       "type": "Int",
+       "range": [
+        "-1",
+        "2"
+       ]
+      }
+     }
+    },
+    {
+     "id": "add",
+     "weight": 1,
+     "expression": {
+      "signature": "add(Int,Int)->Int",
+      "args": [
+       {
+        "ref": "Transition"
+       },
+       {
+        "ref": "Transition"
+       }
+      ]
+     }
+    }
+   ]
+  }
+ ]
+}

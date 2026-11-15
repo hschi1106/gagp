@@ -16,13 +16,173 @@ struct MutablePhaseTree {
   Value* constants;
   int capacity;
 };
+__host__ __device__ inline int phase_subtree_end(const PhaseTreeView& tree, int start);
+__host__ __device__ inline bool phase_same_constant(const Value& x, const Value& y) {
+  return x.tag == y.tag && (x.tag == ValueTag::Bool ? x.b == y.b : x.i == y.i);
+}
+// Walk a tree of a profile with repeated template holes (g.shared). Every
+// later occurrence of a repeated hole is the first occurrence's derivation:
+// fill-level expressions shift by the occurrence's delta and take its static
+// operands (binder numbers, region entries), nodes below a reference and all
+// constant values are copied, and every site inside a copy is marked fixed,
+// so it counts toward site depth but variation never selects it.
+// Rewrite=false (import): `in` must already hold exact copies; only out.sites
+// is written (it may be in.sites' storage). Rewrite=true (after generation or
+// variation): `out` must not alias `in`; the stale input copies are skipped
+// and rebuilt, so the result may be longer or shorter than the input.
+template<bool Rewrite>
+__host__ __device__ inline PhaseGenerationResult share_phase_tree(const PhaseGrammarView& g, int root, int scope,
+    const PhaseTreeView& in, MutablePhaseTree out) {
+  PhaseGenerationResult result;
+  if (!g.shared || !g.expressions || !g.nonterminals || !g.productions || !in.nodes || !in.origins || !out.sites ||
+      (Rewrite && (!out.nodes || !out.origins || !out.constants)) || (in.constant_count && !in.constants) ||
+      root < 0 || root >= g.expression_count || scope < 0 || scope > 15 || in.node_count <= 0 || in.node_count > 1024 ||
+      in.constant_count < 0 || in.constant_count > in.node_count || out.capacity <= 0 || out.capacity > 1024)
+    return result;
+  // close >= 0 ends record `close`; close <= -2 ends template instance
+  // `expression`, dropping the records it owns from index -2-close up (copies
+  // inside a copy are never walked, so a record lives exactly as long as its
+  // instance; a record of an enclosing instance may be opened inside it).
+  struct Task { int expression, scope, close; PhaseGeneSite site; };
+  // A first occurrence spans [begin,end) of the output.
+  struct Record { int first, begin, end; };
+  Task pending[192]; Record records[32];
+  int pending_count = 1, record_count = 0, cursor = 0, written = 0, steps = 0;
+  pending[0] = {root, scope, -1, {}};
+  const PhaseTreeNode* source_nodes = Rewrite ? out.nodes : in.nodes;
+  const int* source_origins = Rewrite ? out.origins : in.origins;
+  const Value* source_constants = Rewrite ? out.constants : in.constants;
+  while (pending_count) {
+    if (++steps > 8192) return result;
+    const auto task = pending[--pending_count];
+    if (task.close >= 0) { records[task.close].end = written; continue; }
+    if (task.close <= -2) {
+      int kept = -2 - task.close;
+      for (int r = kept; r < record_count; ++r)
+        if (g.shared[records[r].first].owner != task.expression) records[kept++] = records[r];
+      record_count = kept; continue;
+    }
+    if (task.expression < 0 || task.expression >= g.expression_count) return result;
+    const auto expression = g.expressions[task.expression];
+    if (expression.kind == PhaseExpressionKind::Reference) {
+      if (expression.target < 0 || expression.target >= g.nonterminal_count || cursor >= in.node_count ||
+          expression.scope_count < 0 || expression.scope_count > 8 || pending_count >= 192 || task.site.nonterminal >= 0) return result;
+      const auto nt = g.nonterminals[expression.target];
+      if (nt.scope_count != expression.scope_count || nt.production_offset < 0 || nt.production_count <= 0 ||
+          nt.production_offset > g.production_count || nt.production_count > g.production_count - nt.production_offset)
+        return result;
+      int production = -1;
+      for (int i = 0; i < nt.production_count && production < 0; ++i) {
+        int e = g.productions[nt.production_offset + i].expression;
+        for (int hop = 0; hop < 64 && e >= 0 && e < g.expression_count &&
+             g.expressions[e].kind == PhaseExpressionKind::Alias; ++hop) e = g.expressions[e].children[0];
+        if (e == in.origins[cursor]) production = g.productions[nt.production_offset + i].expression;
+      }
+      if (production < 0) return result;
+      pending[pending_count++] = {production, expression.scope_count, -1,
+          {expression.target, task.expression, task.scope, expression.scope_count | (nt.fixed ? kPhaseFixedSite : 0)}};
+      continue;
+    }
+    if (expression.kind == PhaseExpressionKind::Alias) {
+      const auto shared = g.shared[task.expression];
+      if (shared.instance) {
+        if (pending_count >= 191) return result;
+        pending[pending_count++] = {task.expression, 0, -2 - record_count, {}};
+      } else if (shared.first == task.expression) {
+        if (record_count >= 32 || pending_count >= 191) return result;
+        records[record_count] = {task.expression, written, -1};
+        pending[pending_count++] = {-1, 0, record_count++, {}};
+      } else if (shared.first >= 0) {
+        // A later occurrence: never the first node of a production.
+        if (task.site.nonterminal >= 0 || cursor >= in.node_count) return result;
+        int r = record_count - 1;
+        while (r >= 0 && (records[r].first != shared.first || records[r].end < 0)) --r;
+        if (r < 0) return result;
+        const int skipped = phase_subtree_end(in, cursor);
+        const int begin = records[r].begin, length = records[r].end - begin;
+        if (skipped < 0 || length <= 0) return result;
+        if (!Rewrite && skipped - cursor != length) return result;
+        if (Rewrite && length > out.capacity - written) { result.status = PhaseCompileStatus::Capacity; return result; }
+        for (int i = 0; i < length; ++i) {
+          auto node = source_nodes[begin + i]; int origin = source_origins[begin + i]; auto site = out.sites[begin + i];
+          if (origin >= shared.low && origin <= shared.high) {
+            origin += shared.delta;
+            if (origin < 0 || origin >= g.expression_count) return result;
+            const auto& model = g.expressions[origin].node;
+            if (model.kind != node.kind || model.opcode != node.opcode || model.arity != node.arity || model.type != node.type) return result;
+            if (node.kind != PhaseTreeKind::Constant) node.operand = model.operand;
+          }
+          if (site.nonterminal >= 0) {
+            site.scope |= kPhaseFixedSite;
+            if (site.entry_expression >= shared.low && site.entry_expression <= shared.high) site.entry_expression += shared.delta;
+          }
+          if (node.kind == PhaseTreeKind::Constant && (node.operand < 0 || node.operand >= (Rewrite ? result.constants : in.constant_count)))
+            return result;
+          if constexpr (Rewrite) {
+            if (node.kind == PhaseTreeKind::Constant) {
+              const Value value = out.constants[node.operand];
+              node.operand = result.constants; out.constants[result.constants++] = value;
+            }
+            out.nodes[written + i] = node; out.origins[written + i] = origin;
+          } else {
+            const auto x = in.nodes[cursor + i];
+            if (x.kind != node.kind || x.opcode != node.opcode || x.arity != node.arity || x.fuel != node.fuel ||
+                x.merge_fuel != node.merge_fuel || x.type != node.type || in.origins[cursor + i] != origin) return result;
+            if (node.kind == PhaseTreeKind::Constant) {
+              if (x.operand < 0 || x.operand >= in.constant_count ||
+                  !phase_same_constant(source_constants[x.operand], source_constants[node.operand])) return result;
+            } else if (x.operand != node.operand) return result;
+          }
+          out.sites[written + i] = site;
+        }
+        cursor = skipped; written += length;
+        continue;
+      }
+      // A template or hole wrapper passes a pending site to its first node.
+      if (pending_count >= 192) return result;
+      pending[pending_count++] = {expression.children[0], phase_child_scope(expression, 0, task.scope), -1, task.site};
+      continue;
+    }
+    if (cursor >= in.node_count) return result;
+    auto node = in.nodes[cursor];
+    if (in.origins[cursor] != task.expression || node.kind != expression.node.kind ||
+        node.opcode != expression.node.opcode || node.arity != expression.node.arity ||
+        node.fuel != expression.node.fuel || node.merge_fuel != expression.node.merge_fuel || node.type != expression.node.type ||
+        node.arity < 0 || node.arity > kPhaseMaxArity) return result;
+    if (expression.kind != PhaseExpressionKind::Constant && node.operand != expression.node.operand) return result;
+    if constexpr (Rewrite) {
+      if (written >= out.capacity) { result.status = PhaseCompileStatus::Capacity; return result; }
+      if (node.kind == PhaseTreeKind::Constant) {
+        if (node.operand < 0 || node.operand >= in.constant_count) return result;
+        out.constants[result.constants] = in.constants[node.operand]; node.operand = result.constants++;
+      }
+      out.nodes[written] = node; out.origins[written] = task.expression;
+    }
+    out.sites[written++] = task.site; ++cursor;
+    for (int i = node.arity - 1; i >= 0; --i) {
+      if (pending_count >= 192) return result;
+      pending[pending_count++] = {expression.children[i], phase_child_scope(expression, i, task.scope), -1, {}};
+    }
+  }
+  if (cursor != in.node_count || record_count) return result;
+  result.nodes = written; result.constants = Rewrite ? result.constants : in.constant_count;
+  result.status = PhaseCompileStatus::Ok; return result;
+}
+
 // Annotate a private generated tree using its construction expression IDs.
 // This is not canonical grammar reconstruction and is not an import boundary.
 // Checking every traversed production/expression guards implementation mistakes
 // and establishes precise nonterminal sites for subsequent GPU-only splices.
+// A profile with repeated holes also checks that every later occurrence is an
+// exact copy (see share_phase_tree); that needs the constant table.
 __host__ __device__ inline bool annotate_phase_tree(const PhaseGrammarView& g, int root,
     int scope, const PhaseTreeNode* nodes, const int* origins, int count,
-    PhaseGeneSite* sites) {
+    PhaseGeneSite* sites, const Value* constants=nullptr, int constant_count=0) {
+  if (g.shared) {
+    const PhaseTreeView in{nodes, origins, sites, constants, count, constant_count};
+    const auto r = share_phase_tree<false>(g, root, scope, in, {nullptr, nullptr, sites, nullptr, 1024});
+    return r.status == PhaseCompileStatus::Ok && r.nodes == count;
+  }
   if (!nodes || !origins || !sites || !g.expressions || !g.nonterminals || !g.productions ||
       root < 0 || root >= g.expression_count || scope < 0 || scope > 15 || count <= 0 || count > 1024)
     return false;

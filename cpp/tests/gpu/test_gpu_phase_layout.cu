@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cmath>
 #include <fstream>
 #include <iostream>
 #include <stdexcept>
@@ -114,6 +115,65 @@ void check_import(const grammar::CompiledGrammar& grammar,const ProgramGenome& g
  require(rejected,"import reused a private certificate after AST mutation");
 }
 }
+// Unit productions inline into their callers: each inlined alternative
+// carries w_unit * w / W, alias cycles drop out, and a diamond (one expression
+// reached through two chains) is one alternative with both weights.
+void check_unit_productions() {
+ const auto grammar=grammar::compile_grammar(grammar::load_definition(GAGP_REPOSITORY_ROOT "/cpp/tests/fixtures/phase_units.json"));
+ const auto id=[&](const std::string& name){
+  for(const auto& nt:grammar.nonterminals())if(nt.stable_id==name)return nt.id;
+  throw std::runtime_error("missing nonterminal "+name);
+ };
+ const auto profile=compile_phase_grammar(grammar,id("U.Top"),8);
+ const auto weights=[&](const char* name){
+  const auto& nt=profile.nonterminals.at(id(name));std::vector<double> w;
+  for(int i=0;i<nt.production_count;++i)w.push_back(profile.productions[nt.production_offset+i].weight);
+  std::sort(w.begin(),w.end());return w;
+ };
+ const auto near=[](const std::vector<double>& a,const std::vector<double>& b) {
+  if(a.size()!=b.size())return false;
+  for(std::size_t i=0;i<a.size();++i)if(std::abs(a[i]-b[i])>1e-12)return false;
+  return true;
+ };
+ // Top: expr 3 (through Expr and Atom), leaf 1 (diamond with Atom's leaf),
+ // wrapped 1 (Cycle, whose loop back to itself drops out), let 1.
+ require(near(weights("U.Top"),{1.0/3,0.5,0.5,2.0/3,0.75,0.75,0.75,0.75,1}),"unit production weights");
+ require(near(weights("U.Cycle"),{1,2}) && near(weights("U.Loop"),{1,1}),"alias cycle weights");
+ for(const auto& p:profile.productions) {
+  int e=p.expression;
+  while(profile.expressions[e].kind==PhaseExpressionKind::Alias)e=profile.expressions[e].children[0];
+  require(profile.expressions[e].kind!=PhaseExpressionKind::Reference,"a unit production survived inlining");
+ }
+}
+// Imported members of a grammar with repeated holes name every copy after its
+// own occurrence; a copy whose fill differs from the first is rejected.
+void check_repeated_holes() {
+ const auto grammar=grammar::compile_grammar(grammar::load_definition(GAGP_REPOSITORY_ROOT "/cpp/tests/fixtures/phase_repeated.json"));
+ std::vector<std::string> inputs;for(const auto& input:grammar.inputs())inputs.push_back(input.name);
+ int copies=0,tampered=0;
+ for(unsigned seed=0;seed<128;++seed) {
+  const auto member=grammar::generate_derivation(grammar,seed).genome;
+  const auto layout=import_native_phase_layout(grammar,member,nullptr,&inputs);
+  const auto& profile=layout.profiles.at(0);auto gene=layout.genes.at(0);
+  require(!profile.shared.empty(),"repeated holes compiled without a shared table");
+  const auto view=phase_structure_view(profile);const int count=gene.nodes.size(),constants=gene.constants.size();
+  std::vector<PhaseGeneSite> sites(count);
+  require(annotate_phase_tree(view,profile.root_expression,0,gene.nodes.data(),gene.origins.data(),count,sites.data(),
+      gene.constants.data(),constants),"canonical repeated-hole copies rejected");
+  for(int i=0;i<count;++i) {
+   copies+=sites[i].nonterminal>=0 && (sites[i].scope&kPhaseFixedSite);
+   // A constant of a later occurrence's own fill.
+   const bool copied=std::any_of(profile.shared.begin(),profile.shared.end(),[&](const PhaseSharedHole& h){
+     return h.first>=0 && h.delta && gene.origins[i]>=h.low+h.delta && gene.origins[i]<=h.high+h.delta;});
+   if(!copied || gene.nodes[i].kind!=PhaseTreeKind::Constant)continue;
+   auto& value=gene.constants.at(gene.nodes[i].operand);const auto saved=value;value=Value::from_int(saved.i+1);
+   require(!annotate_phase_tree(view,profile.root_expression,0,gene.nodes.data(),gene.origins.data(),count,sites.data(),
+       gene.constants.data(),constants),"a differing repeated-hole copy was accepted");
+   value=saved;++tampered;
+  }
+ }
+ require(copies>0 && tampered>0,"repeated-hole fixture did not exercise copies");
+}
 int main(int argc,char** argv) {try {
  require(argc==1 || argc==3,"usage: test_gpu_phase_layout [PREPARED_JSON GRAMMAR_JSON]");
  const auto grammar_owner=std::make_shared<const grammar::CompiledGrammar>(grammar::compile_grammar(grammar::load_definition(argc==3?argv[2]:
@@ -142,9 +202,17 @@ int main(int argc,char** argv) {try {
  require(wrong_owner,"grammar profile cache accepted foreign owner");
  if(argc==1) {
   const auto coupled=grammar::compile_grammar(grammar::parse_definition(test::bounded_capture_definition()));
-  const auto genome=grammar::generate_derivation(coupled,17).genome;bool rejected=false;
-  try{(void)import_native_phase_layout(coupled,genome);}catch(const std::invalid_argument&){rejected=true;}
-  require(rejected,"coupled/lexical region combination did not request native fallback");
+  // A repeated hole under two lets, each copy capturing its own binder: one
+  // shared derivation in whole-program mode, lowered and exported exactly.
+  std::vector<std::string> names;for(const auto& input:coupled.inputs())names.push_back(input.name);
+  for(unsigned seed:{3u,17u,29u}) {
+   const auto genome=grammar::generate_derivation(coupled,seed).genome;
+   const auto layout=import_native_phase_layout(coupled,genome,nullptr,&names);
+   require(layout.whole_program && !layout.profiles.at(0).shared.empty(),"coupled repeated hole did not share one derivation");
+   same_bytecode(layout.executable,compile_for_eval(genome,names));
+   const auto restored=export_native_phase_layout(coupled,layout,layout.genes);
+   grammar::require_membership(coupled,restored);same_bytecode(compile_for_eval(restored,names),layout.executable);
+  }
   std::ifstream source(GAGP_REPOSITORY_ROOT "/cpp/tests/fixtures/phase_layout_memo.json");
   const std::string fixture((std::istreambuf_iterator<char>(source)),{});
   {
@@ -165,20 +233,38 @@ int main(int argc,char** argv) {try {
     auto& literal=alternatives.back().object_v.at("expression").object_v.at("args").array_v[0]
         .object_v.at("args").array_v[1].object_v.at("constant").object_v.at("values").array_v[0];
     literal=cli_detail::JsonParser(R"(["1"])").parse();
-    // The phase profile materializes payload constants of any value, but a
-    // bounded-region genome carrying a nonempty list constant falls back.
+    // The phase profile materializes payload constants of any value, but the
+    // region-template layout holds only Int, Bool and empty IntList constant
+    // domains: every member of a grammar with a nonempty list constant domain
+    // declines it, and the population imports whole programs.
     const auto nonempty=grammar::compile_grammar(grammar::parse_definition(grammar::canonical_json(document)));
     (void)compile_phase_grammar(nonempty,1,12);
-    int declined=0;
+    int declined=0,listed=0;std::vector<ProgramGenome> members;
     for(unsigned seed=0;seed<64;++seed) {
-      const auto member=grammar::generate_derivation(nonempty,seed).genome;
-      const bool listed=std::any_of(member.ast.consts.begin(),member.ast.consts.end(),
+      const auto member=grammar::generate_derivation(nonempty,seed).genome;members.push_back(member);
+      listed+=std::any_of(member.ast.consts.begin(),member.ast.consts.end(),
           [](const Value& v){return v.tag==ValueTag::IntList && Value::container_len(v)>0;});
-      if(!listed)continue;
       try{(void)import_native_phase_layout(nonempty,member);}catch(const std::invalid_argument&){++declined;continue;}
-      require(false,"nonempty list constant silently admitted to a bounded-region phase");
+      require(false,"a nonempty list constant domain silently admitted to a bounded-region phase");
     }
-    require(declined>0,"list grammar test failed to exercise nonempty payload constants");
+    require(declined==64 && listed>0,"list grammar test failed to exercise nonempty payload constants");
+    const auto imported=import_native_phase_population(nonempty,members,nullptr,nullptr);
+    require(imported.size()==members.size() && imported.front().whole_program && imported.front().slots.size()==1,
+        "a population with a nonempty list constant did not import whole programs");
+    for(std::size_t m=0;m<members.size();++m) {
+      same_bytecode(imported[m].executable,import_native_phase_layout(nonempty,members[m],nullptr,nullptr,true,true).executable);
+      if(m==0) {
+        const auto restored=export_native_phase_layout(nonempty,imported[0],imported[0].genes);
+        grammar::require_membership(nonempty,restored);
+        std::vector<std::string> inputs;for(const auto& input:nonempty.inputs())inputs.push_back(input.name);
+        same_bytecode(compile_for_eval(restored,inputs),imported[0].executable);
+      }
+    }
+    // The list-free grammar keeps the region layout for the same seeds.
+    std::vector<ProgramGenome> regional;
+    for(unsigned seed=0;seed<64;++seed)regional.push_back(grammar::generate_derivation(lists,seed).genome);
+    require(!import_native_phase_population(lists,regional,nullptr,nullptr).front().whole_program,
+        "a region-template population changed layout");
   }
   for (const auto* charge : {R"({"nodes":2,"depth":1,"resets_depth":false})",
                             R"({"nodes":1,"depth":0,"resets_depth":true})"}) {
@@ -188,9 +274,17 @@ int main(int argc,char** argv) {try {
     const auto weighted=grammar::compile_grammar(grammar::parse_definition(grammar::canonical_json(document)));
     auto member=grammar::generate_derivation(weighted,17).genome;
     grammar::require_membership(weighted,member); // A valid grammar/member, not malformed input.
-    std::string reason;
-    try{(void)import_native_phase_layout(weighted,member);}catch(const std::invalid_argument& e){reason=e.what();}
-    require(reason.find("weighted/reset skeleton")!=std::string::npos,"weighted/reset skeleton did not explicitly decline");
+    // A charge never changes search: the region layout holds the member
+    // exactly as it holds the uncharged grammar's member of the same seed.
+    const auto plain=grammar::compile_grammar(grammar::parse_definition(fixture));
+    const auto plain_member=grammar::generate_derivation(plain,17).genome;
+    require(ast_cache_key(plain_member.ast)==ast_cache_key(member.ast),"a resource charge changed generation");
+    const auto charged=import_native_phase_layout(weighted,member),uncharged=import_native_phase_layout(plain,plain_member);
+    require(!charged.whole_program && charged.slots.size()==uncharged.slots.size() && charged.genes.size()==uncharged.genes.size(),
+        "a resource charge changed the layout");
+    for(std::size_t k=0;k<charged.genes.size();++k)require(charged.genes[k].origins==uncharged.genes[k].origins &&
+        charged.genes[k].nodes.size()==uncharged.genes[k].nodes.size(),"a resource charge changed a phase gene");
+    same_bytecode(charged.executable,uncharged.executable);
   }
   for (const bool depth_limit : {false,true}) {
     // The materialized depth the membership check bounds (prefix stack height).
@@ -224,6 +318,7 @@ int main(int argc,char** argv) {try {
   }
 
  }
+ if(argc==1){check_unit_productions();check_repeated_holes();}
  std::cout<<"roundtrip_programs="<<population.size()<<" all_instructions_constants_fuel_bindings_plans_exact=true\n";
  return 0;
 } catch(const std::exception& e){std::cerr<<e.what()<<'\n';return 1;}}

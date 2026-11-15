@@ -1,6 +1,7 @@
 #pragma once
 #include "phase_compile.cuh"
 #include "grammar_random.cuh"
+#include "gagp/evolution/grammar/numeric_sampling.hpp"
 #include <type_traits>
 
 namespace gagp::evo::repro {
@@ -43,12 +44,29 @@ __host__ __device__ inline int phase_child_scope(const PhaseExpression& expressi
 }
 struct PhaseProduction { int expression; double weight; };
 struct PhaseNonterminal { int production_offset=0, production_count=0, scope_count=0; bool normalized_weights=false, fixed=false; };
-struct PhaseDomain { int value_offset=0, value_count=0; bool integer_range=false; std::int64_t minimum=0, maximum=0; };
+// A constant domain as generation samples it: an Int range, a Float range
+// (with its quantization scale, 0 for none), or finite values. A domain with
+// `sample_from` is described by its sampler.
+struct PhaseDomain {
+  int value_offset=0, value_count=0; bool integer_range=false, float_range=false;
+  std::int64_t minimum=0, maximum=0; double float_minimum=0, float_maximum=0, quantization=0;
+};
 // Optional exact production-choice tables (warp generation only). For one
 // nonterminal, depth and logical budget, the eligible production set changes
 // only at the sorted minimum costs. Within one set the sequential FP64 weighted
 // draw is monotone in the 53-bit random value, so host-computed integer
 // thresholds select exactly the production the serial loop would select.
+// A template hole that occurs more than once in its body is one shared
+// derivation: generation derives every occurrence independently, then
+// share_phase_tree replaces each later occurrence (in prefix order) with a copy
+// of the first. Indexed by expression. `instance` marks a template instance
+// with a repeated hole; `first` is the first occurrence of a repeated hole
+// (itself for the first one) and -1 elsewhere; `owner` is the instance of a
+// first occurrence. A later occurrence maps every
+// expression of the first fill's subtree (ids low..high, contiguous because
+// fills compile in post-order) to its own by adding `delta`; nodes derived
+// below a reference keep their expression.
+struct PhaseSharedHole { int first=-1, delta=0, low=0, high=-1, owner=-1; bool instance=false; };
 struct PhaseChoiceHeader { int value_offset=0, value_count=-1, empty_status=0; };
 struct PhaseChoiceSet { int status=0, count=0, threshold_offset=0, choice_offset=0; };
 struct PhaseGrammarView {
@@ -61,6 +79,8 @@ struct PhaseGrammarView {
   const PhaseRegionInfo* regions=nullptr; int region_count=0;
   const PhaseChoiceHeader* choice_headers=nullptr; const unsigned* choice_values=nullptr;
   const PhaseChoiceSet* choice_sets=nullptr; const std::uint64_t* choice_thresholds=nullptr; const int* choice_expressions=nullptr;
+  // Null unless the profile has a repeated template hole (expression_count entries).
+  const PhaseSharedHole* shared=nullptr;
 };
 struct PhaseGenerationResult { PhaseCompileStatus status=PhaseCompileStatus::Invalid; int nodes=0,constants=0,steps=0; };
 
@@ -191,6 +211,12 @@ __host__ __device__ inline PhaseGenerationResult generate_phase(
       if(domain.integer_range) {
         if(domain.minimum>domain.maximum)return result;
         value=Value::from_int(random.integer(domain.minimum,domain.maximum));
+      } else if(domain.float_range) {
+        // The native Float construction law (spec/grammar_definition.md), with
+        // separately rounded operations on both owners.
+        if(!(domain.float_minimum<=domain.float_maximum))return result;
+        value=Value::from_float(grammar::quantize_float(
+            grammar::sample_float_interval(domain.float_minimum,domain.float_maximum,random.next()),domain.quantization));
       } else {
         if(!grammar.values || domain.value_offset<0 || domain.value_count<=0 || domain.value_offset>grammar.value_count ||
             domain.value_count>grammar.value_count-domain.value_offset)return result;

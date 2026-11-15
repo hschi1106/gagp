@@ -1,6 +1,7 @@
 #pragma once
-// Host half of the isolated CUDA grammar-construction prototype. No native
-// generation path calls this yet; unsupported alternatives reject the profile.
+// Host half of resident grammar construction: compiles one nonterminal's
+// reachable grammar into the phase tables both owners upload. A construct the
+// tables cannot hold rejects the profile.
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -37,7 +38,20 @@ struct HostPhaseGrammar {
     std::vector<std::vector<RegionValueSlot>> sources;
   };
   std::vector<RegionSource> region_sources;
+  // Repeated template holes by expression (see PhaseSharedHole); empty when
+  // no reachable template repeats a hole.
+  std::vector<PhaseSharedHole> shared;
 };
+// The tables a tree walk reads (expressions, productions, nonterminals and
+// shared holes), viewing host memory. Generation needs the full upload.
+inline PhaseGrammarView phase_structure_view(const HostPhaseGrammar& h) {
+  PhaseGrammarView v;
+  v.expressions=h.expressions.data();v.expression_count=int(h.expressions.size());
+  v.productions=h.productions.data();v.production_count=int(h.productions.size());
+  v.nonterminals=h.nonterminals.data();v.nonterminal_count=int(h.nonterminals.size());
+  v.shared=h.shared.empty()?nullptr:h.shared.data();
+  return v;
+}
 inline bool phase_statement_category(NodeCategory category) {
   return category==NodeCategory::Program || category==NodeCategory::Block ||
       category==NodeCategory::Statement;
@@ -103,11 +117,15 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
     unsigned root, unsigned max_depth=32, unsigned site_depth=0,
     const std::vector<std::string>* inputs=nullptr) {
   using namespace grammar;
-  const auto fail=[](const char* reason){throw std::invalid_argument(std::string("GPU phase construction: ")+reason);};
-  if(root>=grammar.nonterminals().size() || !max_depth || max_depth>64 || max_depth>grammar.search_limits().max_depth || site_depth>15)
+  const auto fail=[](const std::string& reason){throw std::invalid_argument("resident grammar: "+reason);};
+  if(max_depth>unsigned(kPhaseProgramDepth))
+    fail("search_limits max_depth "+std::to_string(max_depth)+" exceeds the resident capacity of depth "+std::to_string(kPhaseProgramDepth));
+  if(root>=grammar.nonterminals().size() || !max_depth || max_depth>grammar.search_limits().max_depth || site_depth>15)
     fail("invalid root/depth");
-  if(grammar.expressions().size()>65536 || grammar.nonterminals().size()>4096 ||
-      (grammar.expressions().size()+1)*(max_depth+1)>4*1024*1024)fail("table capacity");
+  if(grammar.expressions().size()>65536 || grammar.nonterminals().size()>4096)fail("table size");
+  if((grammar.expressions().size()+1)*(max_depth+1)>4*1024*1024)
+    fail(std::to_string(grammar.expressions().size())+" compiled expressions at depth "+std::to_string(max_depth)+
+        " exceed the resident table capacity of 4194304 (expressions+1)*(depth+1) entries");
   HostPhaseGrammar out;out.depth_count=max_depth+1;out.site_depth=site_depth>0;
   out.expressions.resize(grammar.expressions().size());out.nonterminals.resize(grammar.nonterminals().size());
   out.domains.resize(grammar.constants().size());
@@ -115,7 +133,7 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
   using Environment=std::vector<int>;
   std::vector<Environment> nt_environment(out.nonterminals.size()),expr_environment(out.expressions.size());
   const auto project=[&](const Environment& environment,const std::vector<std::uint32_t>& mapping) {
-    if(mapping.size()>8)fail("scope capacity");
+    if(mapping.size()>8)fail("a scope of "+std::to_string(mapping.size())+" bindings exceeds the resident capacity of 8");
     Environment result;
     for(auto position:mapping) {
       if(position>=environment.size())fail("scope map outside its environment");
@@ -128,6 +146,8 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
     return environment.empty()?0:*std::max_element(environment.begin(),environment.end())+1;
   };
   std::function<void(unsigned,const Environment&)> visit_expression;std::function<void(unsigned,const Environment&)> visit_nonterminal;
+  // Hole occurrence groups (prefix order) of every repeated template hole.
+  std::vector<std::vector<unsigned>> repeated;std::vector<unsigned> instances,owners;
   visit_nonterminal=[&](unsigned id,const Environment& environment) {
     if(seen_nt.at(id)) {
       if(nt_environment[id]!=environment)fail("nonterminal entered under two lexical environments");
@@ -136,7 +156,8 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
     seen_nt[id]=true;nt_environment[id]=environment;
     const auto& nt=grammar.nonterminals().at(id);
     const bool statement=phase_statement_category(nt.category);
-    if((nt.category!=NodeCategory::Expression && !statement) || nt.scope.size()>8 || (statement && !nt.scope.empty()) ||
+    if(nt.scope.size()>8)fail("nonterminal "+nt.stable_id+" has a scope of "+std::to_string(nt.scope.size())+" bindings, above the resident capacity of 8");
+    if((nt.category!=NodeCategory::Expression && !statement) || (statement && !nt.scope.empty()) ||
         phase_value_tag(nt.type)==ValueTag::Invalid)
       fail("nonterminal capability");
     out.statements|=statement;
@@ -161,7 +182,7 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
     }
     seen_expr[id]=true;expr_environment[id]=environment;
     const auto& e=grammar.expressions().at(id);auto& x=out.expressions[id];
-    if(environment.size()>15)fail("lexical environment capacity");
+    if(environment.size()>15)fail(std::to_string(environment.size())+" visible lexical bindings exceed the resident capacity of 15");
     const bool statement=phase_statement_category(e.category);
     const bool let=e.kind==ExpressionKind::Primitive &&
         PrimitiveCatalog::standard().at(e.target).lowering_node==NodeKind::LET_REGION;
@@ -185,50 +206,49 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
       // A template instance or hole: its body or fill sees the projected scope.
       if(e.children.size()!=1 || !e.fuel_charges.empty())fail("template capability");
       if(e.kind==ExpressionKind::Template) {
-        // A repeated hole couples its occurrences, which native generation
-        // fills with one copied subtree. Only a fill without choices (no
-        // reference, singleton constants) is generated identically each time
-        // and never varied, so independent generation keeps the copies equal.
-        std::function<bool(unsigned)> fixed=[&](unsigned child) {
-          const auto& c=grammar.expressions().at(child);
-          if(c.kind==ExpressionKind::Reference)return false;
-          if(c.kind==ExpressionKind::Constant) {
-            const auto& d=grammar.constants().at(c.target);
-            if(d.integer_range?d.minimum!=d.maximum:d.values.size()!=1)return false;
-          }
-          for(auto next:c.children)if(!fixed(next))return false;
-          return true;
-        };
-        std::vector<int> uses(grammar.templates().at(e.target).holes.size());
-        std::vector<int> first(uses.size(),-1);
+        // Hole occurrences of this instance in prefix order, through nested
+        // templates (forwarded holes) but not through references.
+        std::vector<std::vector<unsigned>> occurrences(grammar.templates().at(e.target).holes.size());
         std::function<void(unsigned)> count=[&](unsigned child) {
           const auto& c=grammar.expressions().at(child);
           if(c.kind==ExpressionKind::Hole && c.template_id==e.target) {
             if(c.children.size()!=1)fail("template capability");
-            if(++uses.at(c.target)==1)first[c.target]=c.children[0];
-            else if(!fixed(first[c.target]) || !fixed(c.children[0]))fail("repeated template hole with a varying fill");
+            occurrences.at(c.target).push_back(child);
           }
           if(c.kind!=ExpressionKind::Reference)for(auto next:c.children)count(next);
         };
         count(e.children[0]);
+        for(const auto& group:occurrences)if(group.size()>1){repeated.push_back(group);owners.push_back(id);}
+        if(std::any_of(occurrences.begin(),occurrences.end(),[](const auto& g){return g.size()>1;}))instances.push_back(id);
       }
       x.kind=PhaseExpressionKind::Alias;x.children[0]=e.children[0];x.node.arity=0;
       const auto inner=project(environment,e.scope_mapping);
       x.child_scope[0]=static_cast<std::int8_t>(inner.size());x.scope_count=inner.size();
       visit_expression(e.children[0],inner);return;
     }
-    if(e.children.size()>(region || traversal?std::size_t(kPhaseMaxArity):3))fail("arity capacity");
+    if(e.children.size()>(region || traversal?std::size_t(kPhaseMaxArity):3))
+      fail("an expression of "+std::to_string(e.children.size())+" arguments exceeds the resident capacity of "+
+          std::to_string(region || traversal?kPhaseMaxArity:3)+" arguments");
     x.node.arity=e.children.size();for(std::size_t i=0;i<e.children.size();++i)x.children[i]=e.children[i];
     if(e.kind==ExpressionKind::Constant) {
       x.kind=PhaseExpressionKind::Constant;x.target=e.target;x.native_kind=static_cast<int>(NodeKind::CONST);x.node.kind=PhaseTreeKind::Constant;
       if(!seen_domain.at(e.target)) {
-        seen_domain[e.target]=true;const auto& d=grammar.constants().at(e.target);auto& domain=out.domains[e.target];
-        if(phase_value_tag(d.type)==ValueTag::Invalid || d.sampling || d.elements || d.float_range ||
-            (d.integer_range && d.type!=RType::Int))fail("constant domain capability");
+        seen_domain[e.target]=true;auto& domain=out.domains[e.target];
+        // Generation samples a `sample_from` domain's sampler; membership of
+        // the sample in the outer domain is proven by grammar compilation.
+        const auto& d=grammar.constants().at(e.target).sampling?*grammar.constants().at(e.target).sampling:grammar.constants().at(e.target);
+        if(d.elements)fail("constant domain "+std::to_string(e.target)+" is a sequence domain, which resident generation does not sample");
+        if(phase_value_tag(d.type)==ValueTag::Invalid || (d.integer_range && d.type!=RType::Int) || (d.float_range && d.type!=RType::Float))
+          fail("constant domain capability");
         domain.integer_range=d.integer_range;domain.minimum=d.minimum;domain.maximum=d.maximum;
-        if(!d.integer_range) {
+        domain.float_range=d.float_range;domain.float_minimum=d.float_minimum;domain.float_maximum=d.float_maximum;
+        domain.quantization=d.float_quantization_scale;
+        if(!d.integer_range && !d.float_range) {
           domain.value_offset=out.values.size();domain.value_count=d.values.size();
-          if(d.values.empty() || d.values.size()>65536 || out.values.size()+d.values.size()>1024*1024)fail("finite domain capacity");
+          if(d.values.empty())fail("empty constant domain");
+          if(d.values.size()>65536 || out.values.size()+d.values.size()>1024*1024)
+            fail("a constant domain of "+std::to_string(d.values.size())+" values (total "+std::to_string(out.values.size()+d.values.size())+
+                ") exceeds the resident capacity of 65536 values per domain and 1048576 in all");
           // Payload values are materialized once here; generation copies them.
           for(const auto& value:d.values)out.values.push_back(materialize_constant(d.type,value));
         }
@@ -241,7 +261,7 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
         if(found==inputs->end())fail("input missing from evaluator order");
         position=found-inputs->begin();
       }
-      if(position>=64)fail("input local capacity");
+      if(position>=64)fail("input local "+std::to_string(position)+" exceeds the resident capacity of 64 inputs");
       x.kind=PhaseExpressionKind::Input;x.target=position;x.native_kind=static_cast<int>(NodeKind::VAR);
       x.node.kind=PhaseTreeKind::Local;x.node.operand=position;
     } else if(e.kind==ExpressionKind::Bound) {
@@ -255,8 +275,9 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
       if(let) {
         // One binder for the body argument, numbered above every visible one.
         const int binder=next_binder(environment);
+        if(binder>=kPhaseBinders)fail("let binder number "+std::to_string(binder)+" exceeds the resident capacity of "+std::to_string(kPhaseBinders)+" binder numbers");
         if(e.regions.size()!=1 || e.regions[0].bindings.size()!=1 || e.regions[0].argument>=e.children.size() ||
-            phase_value_tag(e.regions[0].bindings[0].type)==ValueTag::Invalid || binder>=kPhaseBinders)
+            phase_value_tag(e.regions[0].bindings[0].type)==ValueTag::Invalid)
           fail("let capability");
         x.node.kind=PhaseTreeKind::Let;x.bind_argument=e.regions[0].argument;x.node.operand=binder;out.lets=true;
         child_environment[x.bind_argument].push_back(binder);
@@ -265,8 +286,10 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
         // binds element, index and state numbered above every visible binder.
         const bool ranged=kind==NodeKind::TRAVERSE_RANGE;
         const int binder=next_binder(environment);const auto arity=ranged?6u:4u;
+        if(binder+2>=kPhaseBinders)fail("traversal binder numbers up to "+std::to_string(binder+2)+" exceed the resident capacity of "+std::to_string(kPhaseBinders)+" binder numbers");
+        if(out.regions.size()>=1024)fail("more than 1024 reachable traversal and bounded region expressions exceed the resident capacity");
         if((kind!=NodeKind::TRAVERSE && !ranged) || e.children.size()!=arity || e.regions.size()!=1 ||
-            e.regions[0].argument!=arity-1 || e.regions[0].bindings.size()!=3 || binder+2>=kPhaseBinders || out.regions.size()>=1024)
+            e.regions[0].argument!=arity-1 || e.regions[0].bindings.size()!=3)
           fail("traversal capability");
         PhaseRegionInfo info;info.traversal=*signature.traversal_direction==TraversalDirection::Reverse?2:1;
         info.ranged=ranged;info.fuel_profile=!e.fuel_charges.empty();
@@ -291,7 +314,7 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
         x.node.kind=PhaseTreeKind::Operation;x.node.opcode=Opcode::CallBuiltin;x.node.operand=descriptor.builtin_id;
       } else {x.node.kind=PhaseTreeKind::Operation;x.node.opcode=phase_opcode(kind);}
     } else if(e.kind==ExpressionKind::Local) {
-      if(e.target>=static_cast<unsigned>(kPhaseNamedLocals))fail("grammar local capacity");
+      if(e.target>=static_cast<unsigned>(kPhaseNamedLocals))fail("grammar local "+std::to_string(e.target)+" exceeds the resident capacity of "+std::to_string(kPhaseNamedLocals)+" grammar locals");
       x.kind=PhaseExpressionKind::Operation;x.native_kind=static_cast<int>(NodeKind::VAR);
       x.node.kind=PhaseTreeKind::Var;x.node.operand=e.target;out.statements=true;
     } else if(e.kind==ExpressionKind::Control) {
@@ -317,10 +340,10 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
             if(found==inputs->end())fail("input target missing from evaluator order");
             position=found-inputs->begin();
           }
-          if(position>=64)fail("input local capacity");
+          if(position>=64)fail("input local "+std::to_string(position)+" exceeds the resident capacity of 64 inputs");
           x.node.operand=-1-position;
         } else {
-          if(e.local>=static_cast<unsigned>(kPhaseNamedLocals))fail("grammar local capacity");
+          if(e.local>=static_cast<unsigned>(kPhaseNamedLocals))fail("grammar local "+std::to_string(e.local)+" exceeds the resident capacity of "+std::to_string(kPhaseNamedLocals)+" grammar locals");
           x.node.operand=e.local;
         }
       }
@@ -336,9 +359,11 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
       const auto& plan=*contract.plan;
       const auto operands=plan.state_types.size()+plan.bound_operand_count;
       const auto phases=e.phases.size();
+      if(e.captures.size()>std::size_t(kPhaseMaxArity))
+        fail("a bounded region of "+std::to_string(e.captures.size())+" captures exceeds the resident capacity of "+std::to_string(kPhaseMaxArity));
+      if(out.regions.size()>=1024)fail("more than 1024 reachable traversal and bounded region expressions exceed the resident capacity");
       if(e.children.size()!=bounded_region_arity(plan) || operands+phases!=e.children.size() || !phases ||
-          e.regions.size()!=phases || e.captures.size()!=plan.parameter_types.size() ||
-          e.captures.size()>std::size_t(kPhaseMaxArity) || out.regions.size()>=1024)
+          e.regions.size()!=phases || e.captures.size()!=plan.parameter_types.size())
         fail("bounded region capability");
       PhaseRegionInfo info;info.operands=operands;info.phases=phases;info.captures=e.captures.size();
       HostPhaseGrammar::RegionSource source{id,plan,{}};
@@ -355,10 +380,10 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
             if(found==inputs->end())fail("region capture missing from evaluator order");
             target=found-inputs->begin();
           }
-          if(target>=64)fail("input local capacity");
+          if(target>=64)fail("input local "+std::to_string(target)+" exceeds the resident capacity of 64 inputs");
         } else if(capture.kind==CompiledCaptureKind::Local) {
           info.capture_kind[c]=PhaseCaptureKind::Local;
-          if(target>=kPhaseNamedLocals)fail("grammar local capacity");
+          if(target>=kPhaseNamedLocals)fail("grammar local "+std::to_string(target)+" exceeds the resident capacity of "+std::to_string(kPhaseNamedLocals)+" grammar locals");
           out.statements=true;
         } else {
           info.capture_kind[c]=PhaseCaptureKind::Bound;
@@ -369,8 +394,8 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
       }
       for(std::size_t p=0;p<phases;++p) {
         const auto& slot=e.regions[p];
-        if(e.phases[p].argument!=operands+p || slot.argument!=operands+p ||
-            e.phases[p].sources.size()!=slot.bindings.size() || slot.bindings.size()>=8)
+        if(slot.bindings.size()>=8)fail("a bounded region phase of "+std::to_string(slot.bindings.size())+" bindings exceeds the resident capacity of 7");
+        if(e.phases[p].argument!=operands+p || slot.argument!=operands+p || e.phases[p].sources.size()!=slot.bindings.size())
           fail("bounded region phase layout");
         info.phase_bindings[p]=slot.bindings.size();
         info.phase_type[p]=bounded_region_phase_type(plan,p);
@@ -387,7 +412,7 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
       x.kind=PhaseExpressionKind::Operation;x.native_kind=static_cast<int>(NodeKind::BOUNDED_REGION);
       x.node.kind=PhaseTreeKind::Region;x.node.operand=out.regions.size();out.lets=true;
       out.regions.push_back(info);out.region_sources.push_back(std::move(source));
-    } else fail("expression kind requires native fallback");
+    } else fail("unknown expression kind");
     for(const auto& charge:e.fuel_charges) {
       if(traversal)break;  // traversal events are in its table entry
       // A let charges its binding Store; a region its BoundedRegion entry.
@@ -399,7 +424,7 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
       else fail("fuel profile capability");
     }
     for(std::size_t i=0;i<e.children.size();++i) {
-      if(child_environment[i].size()>15)fail("lexical environment capacity");
+      if(child_environment[i].size()>15)fail(std::to_string(child_environment[i].size())+" visible lexical bindings exceed the resident capacity of 15");
       x.child_scope[i]=static_cast<std::int8_t>(child_environment[i].size());
       visit_expression(e.children[i],child_environment[i]);
     }
@@ -428,30 +453,137 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
     };
     for(std::size_t p=0;p<e.phases.size();++p)check(e.children.at(e.phases[p].argument));
   }
-  // No zero-node alias loops: every selected production must consume a native
-  // node before referring to another nonterminal. Regular recursion is allowed.
-  // Site annotation recovers a production from its first node's origin, so the
-  // node each production root resolves to must be unique.
-  std::vector<bool> resolved(out.expressions.size());
-  for(const auto& p:out.productions) {
-    int e=p.expression;
-    while(out.expressions[e].kind==PhaseExpressionKind::Alias)e=out.expressions[e].children[0];
-    if(out.expressions[e].kind==PhaseExpressionKind::Reference)fail("root aliases require native fallback");
-    if(resolved[e])fail("productions sharing a root node require native fallback");
-    resolved[e]=true;
+  const auto resolve=[&](int e){while(out.expressions[e].kind==PhaseExpressionKind::Alias)e=out.expressions[e].children[0];return e;};
+  // Unit productions: an alternative whose expression resolves through
+  // template and hole wrappers to a reference derives no node of its own. It
+  // is replaced by the referenced nonterminal's alternatives, each weighted
+  // w_unit * w / W (W: the summed weights of those alternatives), so one draw
+  // selects a derivation with the native probability whenever every
+  // alternative fits the budget. As in native generation, a chain never
+  // revisits a nonterminal without deriving a node: such alias-cycle
+  // alternatives are dropped. The same expression reached twice (a diamond)
+  // is one alternative carrying both weights. The chain is one grammar
+  // invocation: its node carries the outermost nonterminal's site.
+  bool units=false;
+  for(const auto& p:out.productions)units|=out.expressions[resolve(p.expression)].kind==PhaseExpressionKind::Reference;
+  if(units) {
+    std::vector<char> on_path(out.nonterminals.size());std::size_t expanded=0;
+    std::function<std::vector<PhaseProduction>(int)> expand=[&](int id)->std::vector<PhaseProduction> {
+      std::vector<PhaseProduction> result;on_path[id]=1;
+      const auto add=[&](int expression,double weight) {
+        for(auto& p:result)if(p.expression==expression){p.weight+=weight;return;}
+        if(++expanded>65536)fail("unit production inlining exceeds the resident capacity of 65536 alternatives");
+        result.push_back({expression,weight});
+      };
+      const auto& nt=out.nonterminals[id];
+      for(int i=0;i<nt.production_count;++i) {
+        const auto p=out.productions[nt.production_offset+i];const auto& r=out.expressions[resolve(p.expression)];
+        if(r.kind!=PhaseExpressionKind::Reference){add(p.expression,p.weight);continue;}
+        if(on_path[r.target])continue;
+        const auto inner=expand(r.target);double total=0;
+        for(const auto& q:inner)total+=q.weight;
+        for(const auto& q:inner)add(q.expression,p.weight*(q.weight/total));
+      }
+      on_path[id]=0;return result;
+    };
+    std::vector<int> order;
+    for(std::size_t i=0;i<out.nonterminals.size();++i)if(out.nonterminals[i].production_count)order.push_back(int(i));
+    std::sort(order.begin(),order.end(),[&](int a,int b){return out.nonterminals[a].production_offset<out.nonterminals[b].production_offset;});
+    // Expand every list from the original tables before replacing them.
+    std::vector<std::vector<PhaseProduction>> lists;
+    for(int id:order) {
+      lists.push_back(expand(id));
+      if(lists.back().empty())fail("nonterminal "+grammar.nonterminals()[id].stable_id+" derives no node: every alternative is a zero-node alias cycle");
+    }
+    std::vector<PhaseProduction> flat;
+    for(std::size_t i=0;i<order.size();++i) {
+      out.nonterminals[order[i]].production_offset=flat.size();out.nonterminals[order[i]].production_count=lists[i].size();
+      flat.insert(flat.end(),lists[i].begin(),lists[i].end());
+    }
+    out.productions=std::move(flat);
+  }
+  // Site annotation recovers a production from its first node's origin, so
+  // the alternatives of one nonterminal must resolve to distinct nodes. Each
+  // compiled alternative owns its expressions, so this holds by construction.
+  for(const auto& nt:out.nonterminals) {
+    for(int i=0;i<nt.production_count;++i)for(int j=0;j<i;++j)
+      if(resolve(out.productions[nt.production_offset+i].expression)==resolve(out.productions[nt.production_offset+j].expression))
+        fail("alternatives of one nonterminal resolve to the same node");
+  }
+  // Repeated holes: later occurrences copy the first one's derivation. Their
+  // fills compile separately from identical source, so the first fill's
+  // subtree (up to references) occupies ids low..high and each later fill's
+  // is the same shape shifted by a constant.
+  if(!repeated.empty()) {
+    out.shared.assign(out.expressions.size(),PhaseSharedHole{});
+    for(auto id:instances)out.shared[id].instance=true;
+    for(std::size_t g=0;g<repeated.size();++g) {
+      const auto& group=repeated[g];const unsigned first=group[0];const unsigned fill=grammar.expressions()[first].children.at(0);
+      std::vector<unsigned> subtree;
+      std::function<void(unsigned)> collect=[&](unsigned id) {
+        subtree.push_back(id);const auto& c=grammar.expressions()[id];
+        if(c.kind!=ExpressionKind::Reference)for(auto next:c.children)collect(next);
+      };
+      collect(fill);
+      const unsigned low=*std::min_element(subtree.begin(),subtree.end());
+      if(*std::max_element(subtree.begin(),subtree.end())!=fill || fill-low+1!=subtree.size())fail("repeated hole fill layout");
+      out.shared[first].first=int(first);out.shared[first].owner=int(owners[g]);
+      for(std::size_t j=1;j<group.size();++j) {
+        const auto other=grammar.expressions()[group[j]].children.at(0);const long delta=long(other)-long(fill);
+        for(auto id:subtree) {
+          const long copy=long(id)+delta;
+          if(copy<0 || std::size_t(copy)>=out.expressions.size() || !seen_expr[id] || !seen_expr[copy])fail("repeated hole fill layout");
+          const auto& a=grammar.expressions()[id];const auto& b=grammar.expressions()[copy];
+          const auto& x=out.expressions[id];const auto& y=out.expressions[copy];
+          bool same=a.kind==b.kind && a.children.size()==b.children.size() && x.kind==y.kind && x.native_kind==y.native_kind &&
+              x.node.kind==y.node.kind && x.node.opcode==y.node.opcode && x.node.arity==y.node.arity && x.node.fuel==y.node.fuel &&
+              x.node.merge_fuel==y.node.merge_fuel && x.node.type==y.node.type && x.bind_argument==y.bind_argument;
+          if(a.kind==ExpressionKind::Reference)same=same && a.target==b.target && a.scope_mapping==b.scope_mapping;
+          else for(std::size_t c=0;same && c<a.children.size();++c)same=long(b.children[c])==long(a.children[c])+delta;
+          if(a.kind==ExpressionKind::Constant) {
+            const auto& d=grammar.constants()[a.target];const auto& f=grammar.constants()[b.target];
+            const auto& u=out.domains[a.target];const auto& v=out.domains[b.target];
+            same=same && d.type==f.type && u.integer_range==v.integer_range && u.minimum==v.minimum && u.maximum==v.maximum &&
+                u.float_range==v.float_range && u.float_minimum==v.float_minimum && u.float_maximum==v.float_maximum &&
+                u.quantization==v.quantization && u.value_count==v.value_count;
+          } else if(a.kind!=ExpressionKind::Reference && a.kind!=ExpressionKind::Structured && !(x.node.kind==PhaseTreeKind::Traverse))
+            same=same && a.target==b.target;
+          if(!same)fail("repeated hole fills differ");
+        }
+        out.shared[group[j]].first=int(first);out.shared[group[j]].delta=int(delta);
+        out.shared[group[j]].low=int(low);out.shared[group[j]].high=int(fill);
+      }
+    }
   }
   out.minimum.assign((out.expressions.size()+1)*out.depth_count,kNoGrammarId);
   for(std::size_t i=0;i<seen_expr.size();++i)if(seen_expr[i])
     for(unsigned d=0;d<=max_depth;++d)out.minimum[i*out.depth_count+d]=minimum_expression_nodes(grammar,i,d,{});
   // A wrapper costs exactly its child (generation reserves the child's cost).
+  // A template that repeats a hole reserves every copy at the tightest
+  // occurrence depth, which may exceed its body's independent cost.
   for(std::size_t i=0;i<seen_expr.size();++i)if(seen_expr[i] && out.expressions[i].kind==PhaseExpressionKind::Alias)
-    for(unsigned d=0;d<=max_depth;++d)
-      if(out.minimum[i*out.depth_count+d]!=out.minimum[std::size_t(out.expressions[i].children[0])*out.depth_count+d])
+    for(unsigned d=0;d<=max_depth;++d) {
+      const auto wrapper=out.minimum[i*out.depth_count+d],body=out.minimum[std::size_t(out.expressions[i].children[0])*out.depth_count+d];
+      if(wrapper==body)continue;
+      if(out.shared.empty() || grammar.expressions()[i].kind!=ExpressionKind::Template || wrapper<body)
         fail("template budget differs from its body");
+    }
   PhaseExpression entry;entry.kind=PhaseExpressionKind::Reference;entry.target=root;entry.scope_count=grammar.nonterminals()[root].scope.size();
   for(int i=0;i<entry.scope_count;++i)entry.scope[i]=i;
   out.root_expression=out.expressions.size();out.expressions.push_back(entry);
   for(unsigned d=0;d<=max_depth;++d)out.minimum[out.root_expression*out.depth_count+d]=grammar.nonterminals().at(root).minimum_nodes_by_depth.at(d);
+  if(!out.shared.empty())out.shared.emplace_back();
+  // After unit expansion, a reference must cost exactly its cheapest alternative.
+  if(units)for(std::size_t i=0;i<out.expressions.size();++i) {
+    if((i!=std::size_t(out.root_expression) && !seen_expr[i]) || out.expressions[i].kind!=PhaseExpressionKind::Reference)continue;
+    const auto& nt=out.nonterminals[out.expressions[i].target];
+    for(unsigned d=0;d<=max_depth;++d) {
+      unsigned cheapest=kNoGrammarId;
+      for(int p=0;p<nt.production_count;++p)
+        cheapest=std::min(cheapest,out.minimum[std::size_t(out.productions[nt.production_offset+p].expression)*out.depth_count+d]);
+      if(cheapest!=out.minimum[i*out.depth_count+d])fail("unit production budget differs from its alternatives");
+    }
+  }
   // Lowering never runs out of its fixed tables during a search: over every
   // tree within the physical depth budget, bound the open traversals, lets,
   // loops and value ifs on one path and the temporaries they hold (a traversal
@@ -494,15 +626,19 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
     const int named=static_cast<int>(std::min<std::size_t>(grammar.locals().size(),kPhaseNamedLocals));
     if(inputs_count+named+h[Temporaries]>gpu_detail::MAX_LOCALS || h[Walks]>kPhaseWalks || h[Lets]>kPhaseLets ||
         h[Loops]>kPhaseLoops || (h[Walks] && h[Ifs]>kPhaseIfs))
-      fail("lowering capacity within the depth budget requires native fallback");
+      fail("lowering capacity within the depth budget: up to "+std::to_string(inputs_count+named+h[Temporaries])+" locals (capacity "+
+          std::to_string(gpu_detail::MAX_LOCALS)+"), "+std::to_string(h[Walks])+" open traversals ("+std::to_string(kPhaseWalks)+"), "+
+          std::to_string(h[Lets])+" open lets ("+std::to_string(kPhaseLets)+"), "+std::to_string(h[Loops])+" open loops ("+
+          std::to_string(kPhaseLoops)+") and "+std::to_string(h[Ifs])+" analysed value ifs under a traversal ("+std::to_string(kPhaseIfs)+") on one path");
   }
   if(site_depth) {
     // Site depth: a second table dimension counts grammar invocations. Only a
-    // reference consumes it; physical depth is consumed by nodes. The admitted
-    // profile forbids production-root aliases, so recursion always reduces d or l.
+    // reference consumes it; physical depth is consumed by nodes. Every
+    // production root resolves to a node, so recursion always reduces d or l.
     out.logical_depth_count=site_depth+1;
     const auto size=out.expressions.size()*out.depth_count*out.logical_depth_count;
-    if(size>4*1024*1024)fail("site depth table capacity");
+    if(size>4*1024*1024)fail(std::to_string(out.expressions.size())+" compiled expressions at depth "+std::to_string(max_depth)+
+        " and site depth "+std::to_string(site_depth)+" exceed the resident table capacity of 4194304 entries");
     out.minimum.assign(size,kNoGrammarId);
     std::vector<bool> computed(size);
     std::function<unsigned(int,int,int)> cost=[&](int id,int d,int l)->unsigned {

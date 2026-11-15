@@ -50,9 +50,9 @@ struct UploadedProfile {
  Buffer<PhaseDomain> domains;Buffer<Value> values;Buffer<unsigned> minimum;
  Buffer<PhaseChoiceHeader> choice_headers;Buffer<unsigned> choice_values;Buffer<PhaseChoiceSet> choice_sets;
  Buffer<std::uint64_t> choice_thresholds;Buffer<int> choice_expressions;bool choice_tables=false;
- Buffer<PhaseRegionInfo> regions;
+ Buffer<PhaseRegionInfo> regions;Buffer<PhaseSharedHole> shared;
  explicit UploadedProfile(const HostPhaseGrammar& h) {
-  expressions.upload(h.expressions);regions.upload(h.regions);
+  expressions.upload(h.expressions);regions.upload(h.regions);shared.upload(h.shared);
   auto weights=h.productions;auto nts=h.nonterminals;
   normalize_static_phase_weights(h,nts,weights);
   productions.upload(weights);nonterminals.upload(nts);
@@ -67,10 +67,11 @@ struct UploadedProfile {
   if(choice_tables){v.choice_headers=choice_headers.data;v.choice_values=choice_values.data;v.choice_sets=choice_sets.data;
    v.choice_thresholds=choice_thresholds.data;v.choice_expressions=choice_expressions.data;}
   v.regions=regions.data;v.region_count=int(h.regions.size());
+  v.shared=h.shared.empty()?nullptr:shared.data;
   return v;
  }
  std::size_t bytes()const{return expressions.bytes()+productions.bytes()+nonterminals.bytes()+domains.bytes()+values.bytes()+minimum.bytes()+
-  choice_headers.bytes()+choice_values.bytes()+choice_sets.bytes()+choice_thresholds.bytes()+choice_expressions.bytes()+regions.bytes();}
+  choice_headers.bytes()+choice_values.bytes()+choice_sets.bytes()+choice_thresholds.bytes()+choice_expressions.bytes()+regions.bytes()+shared.bytes();}
 };
 struct Trees {
  Buffer<PhaseTreeNode> nodes;Buffer<int> origins;Buffer<PhaseGeneSite> sites;Buffer<Value> constants;Buffer<PhaseGenerationResult> lengths;
@@ -101,7 +102,7 @@ __global__ void copy_current_population(TreePointers source,TreePointers target,
 }
 __global__ void annotate_import(TreePointers trees,const DeviceSlot* slots,int rows,int slot_count) {
  const int row=blockIdx.x*blockDim.x+threadIdx.x;if(row>=rows)return;const auto& s=slots[row%slot_count];const auto t=trees.view(row);
- if(!valid(trees.lengths[row]) || !annotate_phase_tree(s.grammar,s.root,s.scope,t.nodes,t.origins,t.node_count,trees.output(row).sites) ||
+ if(!valid(trees.lengths[row]) || !annotate_phase_tree(s.grammar,s.root,s.scope,t.nodes,t.origins,t.node_count,trees.output(row).sites,t.constants,t.constant_count) ||
      (s.grammar.site_depth && phase_site_depth(t.nodes,trees.output(row).sites,t.node_count)>s.logical_depth))
    trees.lengths[row].status=PhaseCompileStatus::Invalid;
 }
@@ -139,12 +140,12 @@ __device__ void publish(OperatorStats* target,const OperatorStats& stat) {
  __syncwarp();if((threadIdx.x&31)==0)*target=stat;
 }
 // `children` offspring rows draw their parents from `population` members.
-__global__ void crossover_population(TreePointers input,TreePointers output,const DeviceSlot* slots,
+__global__ void crossover_population(TreePointers input,TreePointers output,TreePointers scratch,const DeviceSlot* slots,
     int slot_count,int population,int max_variable_nodes,const double* fitness,int pressure,std::uint64_t seed,OperatorStats* stats,OperatorPolicy policy,
     int children) {
  const int child=(blockIdx.x*blockDim.x+threadIdx.x)/32;if(child>=children)return;
  OperatorStats stat;
- phase_ops::crossover_child<true>(child,input,output,slots,slot_count,population,max_variable_nodes,fitness,pressure,seed,policy,stat);
+ phase_ops::crossover_child<true>(child,input,output,scratch,slots,slot_count,population,max_variable_nodes,fitness,pressure,seed,policy,stat);
  publish(stats+child,stat);
 }
 __global__ void mutate_population(TreePointers input,TreePointers output,TreePointers scratch,const DeviceSlot* slots,
@@ -497,12 +498,13 @@ NativePhasePopulation::NativePhasePopulation(std::shared_ptr<const grammar::Comp
  impl_->operators.crossover_attempts=policy.crossover_attempts;
  impl_->operators.mutation_max_nodes=policy.mutation_max_nodes;
  impl_->operators.deferred_copy=true;
- phase_layout_require(site_depth>=0 && site_depth<=15,"site depth must be0..15");
- phase_layout_require(impl_->grammar && !input.empty() && input.size()<=16384,"population/grammar capacity");
+ phase_layout_require(site_depth>=0 && site_depth<=15,"site depth must be 0..15");
+ phase_layout_require(impl_->grammar && !input.empty(),"empty population");
+ phase_layout_require(input.size()<=std::size_t(kPhasePopulation),"population of "+std::to_string(input.size())+" members exceeds the resident capacity of "+std::to_string(kPhasePopulation));
  std::set<std::string> expected_names,actual_names(input_names.begin(),input_names.end());
  for(const auto& binding:impl_->grammar->inputs())expected_names.insert(binding.name);
  phase_layout_require(actual_names==expected_names && actual_names.size()==input_names.size(),"input names must exactly cover grammar inputs");
- phase_layout_require(input_names.size()<=64,"input local capacity");
+ phase_layout_require(input_names.size()<=64,std::to_string(input_names.size())+" program inputs exceed the resident capacity of 64 input locals");
  impl_->input_types.fill(ValueTag::Invalid);
  for(const auto& binding:impl_->grammar->inputs()) {
   const auto index=std::find(input_names.begin(),input_names.end(),binding.name)-input_names.begin();
@@ -513,7 +515,9 @@ NativePhasePopulation::NativePhasePopulation(std::shared_ptr<const grammar::Comp
  int devices=0;if(const auto e=cudaGetDeviceCount(&devices);e!=cudaSuccess)throw std::runtime_error(std::string("cuda runtime initialization failed: ")+cudaGetErrorString(e));checked(cudaGetDevice(&impl_->device));
  const auto import_profiles=std::make_unique<NativePhaseGrammarProfiles>(impl_->grammar,input_names);
  const auto* evaluator_inputs=&input_names;
- impl_->population=input.size();impl_->layout=import_native_phase_layout(*impl_->grammar,input.front(),import_profiles.get(),evaluator_inputs,true);
+ impl_->population=input.size();
+ auto imports=import_native_phase_population(*impl_->grammar,input,import_profiles.get(),evaluator_inputs);
+ impl_->layout=imports.front();
  if(site_depth)for(std::size_t k=0;k<impl_->layout.slots.size();++k)
   impl_->layout.profiles[k]=compile_phase_variation_grammar(*impl_->grammar,
       impl_->layout.slots[k].nonterminal,impl_->grammar->search_limits().max_depth,site_depth,&input_names);
@@ -530,13 +534,16 @@ NativePhasePopulation::NativePhasePopulation(std::shared_ptr<const grammar::Comp
  if(impl_->operators.uniform_phase)impl_->reproduction_profile+="-uniform-phase";
  impl_->reproduction_profile+="-warp-choice";
  const auto capability=gpu_detail::pack_programs_with_shared_case_count({impl_->layout.executable},0,0);
- phase_layout_require(capability.metas.size()==1 && capability.metas.front().is_valid,"fixed executable requires GPU fallback");
- impl_->slot_count=impl_->layout.slots.size();phase_layout_require(impl_->slot_count>0 && impl_->slot_count<=8,"phase count capacity");
- const auto key=native_phase_skeleton_key(impl_->layout);const std::size_t rows=input.size()*impl_->slot_count;
+ phase_layout_require(capability.metas.size()==1 && capability.metas.front().is_valid,impl_->layout.executable.n_locals>gpu_detail::MAX_LOCALS?
+     "a program of "+std::to_string(impl_->layout.executable.n_locals)+" locals exceeds the GPU evaluator capacity of "+std::to_string(gpu_detail::MAX_LOCALS)+" locals":
+     std::string("a program instruction exceeds the GPU evaluator's packed operand range"));
+ impl_->slot_count=impl_->layout.slots.size();phase_layout_require(impl_->slot_count>0 && impl_->slot_count<=kPhaseSlots,"phase count");
+ const std::size_t rows=input.size()*impl_->slot_count;
  const std::size_t tree_bytes=capacity*(sizeof(PhaseTreeNode)+sizeof(int)+sizeof(PhaseGeneSite)+sizeof(Value))+sizeof(PhaseGenerationResult);
  const auto mutation_rows=input.size();
  const std::size_t estimated=(2*rows+mutation_rows+input.size())*tree_bytes+rows*(code_capacity*sizeof(gpu_detail::DInstr)+capacity*sizeof(Value));
- phase_layout_require(estimated<=std::size_t(12)*1024*1024*1024,"resident genotype workspace capacity requires native fallback");
+ phase_layout_require(estimated<=std::size_t(12)*1024*1024*1024,"resident genotype workspace of "+std::to_string(estimated>>20)+
+     " MiB ("+std::to_string(input.size())+" members x "+std::to_string(impl_->slot_count)+" phases) exceeds the capacity of 12288 MiB");
  std::size_t scratch_budget=gpu_detail::kPayloadWorkspaceBytes,free_bytes=0,total_bytes=0;
  gpu_detail::release_cached_device_memory();checked(cudaMemGetInfo(&free_bytes,&total_bytes));
  // Kernel local-memory backing also needs device space. Retire buffers that
@@ -571,11 +578,8 @@ NativePhasePopulation::NativePhasePopulation(std::shared_ptr<const grammar::Comp
  std::vector<ImportOffset> import_offsets;import_offsets.reserve(rows);
  // Upload live imports only, avoiding full-capacity host staging arrays.
  for(std::size_t p=0;p<input.size();++p) {
-  auto imported=p==0?impl_->layout:import_native_phase_layout(*impl_->grammar,input[p],import_profiles.get(),evaluator_inputs,false);
-  phase_layout_require(imported.slots.size()==impl_->layout.slots.size() && native_phase_skeleton_key(imported)==key,"mixed fixed skeleton requires native fallback");
+  auto& imported=imports[p];
   for(int k=0;k<impl_->slot_count;++k) {
-   const auto& a=imported.slots[k];const auto& b=impl_->layout.slots[k];
-   phase_layout_require(a.nonterminal==b.nonterminal && a.ordinal==b.ordinal && a.binders==b.binders && a.max_depth==b.max_depth,"mixed phase contract requires fallback");
    const int row=p*impl_->slot_count+k;const auto& gene=imported.genes[k];auto& l=lengths[row];l.status=PhaseCompileStatus::Ok;l.nodes=gene.nodes.size();l.constants=gene.constants.size();
    phase_layout_require(l.nodes>0 && l.nodes<=capacity && l.constants<=l.nodes,"imported phase capacity");
    import_offsets.push_back({import_nodes.size(),import_constants.size()});
@@ -698,7 +702,7 @@ ReproductionStats NativePhasePopulation::reproduce(const std::vector<double>& co
  const int p=impl_->population,k=impl_->slot_count,available=impl_->layout.budget.max_nodes-impl_->layout.fixed_nodes;
  const auto& policy=impl_->operators;
  checked(cudaEventRecord(impl_->start));
- crossover_population<<<p,32>>>(pointers(*impl_->current),pointers(*impl_->crossed),impl_->slots.data,k,p,available,
+ crossover_population<<<p,32>>>(pointers(*impl_->current),pointers(*impl_->crossed),pointers(*impl_->scratch),impl_->slots.data,k,p,available,
     impl_->fitness.data,pressure,seed,impl_->stats.data,policy,p);
  checked(cudaGetLastError());
  const auto mutate=[&](auto kernel,int grid,int block){kernel<<<grid,block>>>(pointers(*impl_->crossed),pointers(*impl_->next),pointers(*impl_->scratch),impl_->slots.data,k,p,available,
@@ -778,7 +782,7 @@ std::vector<int> NativePhasePopulation::make_batch(const std::vector<double>& se
  constexpr int threads=1; // block size of the per-member bookkeeping kernels
  const auto& policy=s.operators;const auto blocks=(b+threads-1)/threads;
  checked(cudaEventRecord(s.start));
- crossover_population<<<b,32>>>(pointers(*s.current),pointers(*s.crossed),s.slots.data,k,p,available,
+ crossover_population<<<b,32>>>(pointers(*s.current),pointers(*s.crossed),pointers(*s.scratch),s.slots.data,k,p,available,
     s.fitness.data,pressure,seed,s.stats.data,policy,b);
  checked(cudaGetLastError());
  const auto mutate=[&](auto kernel,int grid,int block){kernel<<<grid,block>>>(pointers(*s.crossed),pointers(*s.next),pointers(*s.scratch),s.slots.data,k,b,available,

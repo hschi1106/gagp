@@ -22,6 +22,11 @@ enum class PhaseTreeKind : int { Constant, Local, Operation, If, And, Or, Progra
 // Completion tag of a statement; never a runtime value tag.
 constexpr ValueTag kPhaseStatement = static_cast<ValueTag>(0xF0);
 constexpr int kPhaseNamedLocals = 16;
+// Resident capacities (spec/search_config.md, Resident capacities): nodes of
+// one phase row, the whole-program node and depth budget, nodes of a statement
+// program, variable phases of a region template, and the population.
+constexpr int kPhaseRowNodes = 1024, kPhaseProgramNodes = 2048, kPhaseProgramDepth = 64;
+constexpr int kPhaseStatementNodes = 512, kPhaseSlots = 8, kPhasePopulation = 16384;
 // Open traversals, lets, loops and analysed value ifs on one lowering path.
 constexpr int kPhaseWalks = 8, kPhaseLets = 16, kPhaseLoops = 16, kPhaseIfs = 16;
 // Widest node: a bounded region with its operands and phases.
@@ -166,6 +171,15 @@ __host__ __device__ inline ValueTag operation_type(const PhaseTreeNode& node, co
   }
 }
 }  // namespace phase_compile_detail
+
+// Bounded regions of one lowered program. Lowering holds at most
+// kPhaseMaxRegions, so import refuses a member with more and generation and
+// variation reject a candidate with more, like one over the node budget.
+__host__ __device__ inline int phase_region_count(const PhaseTreeNode* nodes, int count) {
+  int regions=0;
+  for (int i=0; i<count; ++i) regions+=nodes[i].kind==PhaseTreeKind::Region;
+  return regions;
+}
 
 // Native definite assignment (ast_type_verify): a grammar local is readable
 // after an Assign, inside a ForRange body naming it, and after an if_stmt only

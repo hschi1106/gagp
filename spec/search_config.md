@@ -106,18 +106,104 @@ These rules define `crossover`, `sites`, `limits` and `ranking`.
   up to `site_depth`. Phases are filled in order, each leaving room for the
   minimum size of the later phases within the grammar's `max_nodes`.
 - `ranking.tie_break: grammar_sites` requires a task metric with wrong counts.
+- A unit production (an alternative that is only a nonterminal reference,
+  possibly inside template or hole wrappers) is inlined: it is replaced by the
+  referenced nonterminal's alternatives, recursively, each weighted
+  `w_unit * w / W`, where `W` sums the referenced alternatives that remain. An
+  alternative that would revisit a nonterminal of the chain without deriving a
+  node is dropped, and an expression reached through two chains is one
+  alternative carrying both weights. One draw then equals choosing through the
+  chain one reference at a time whenever every alternative fits the budget. An
+  inlined chain is one grammar invocation: its root node carries one site, of
+  the outermost nonterminal, which is the only variation site of the chain and
+  counts one level of `limits.site_depth`.
+- A template hole that occurs more than once in its body is one shared
+  derivation. Generation, crossover and mutation work on the first occurrence
+  in prefix order (later occurrences are derived or spliced like any subtree),
+  and then every later occurrence is rebuilt as a copy of the first. A rebuilt
+  program that exceeds `max_nodes`, `max_depth` or `limits.site_depth` is
+  rejected: an initial phase is regenerated, a crossover attempt counts as
+  rejected, and a mutation is skipped (the crossed child stands). Sites inside
+  a copy are never selected, but count toward `limits.site_depth` and
+  `grammar_sites`.
+- A grammar whose only member is one fixed program has no variable site:
+  every child equals its parent.
+- Generation draws a constant from a domain's `sample_from` sampler when it
+  has one, and samples a Float range with the construction law and
+  quantization ([constant domains](grammar_definition.md#constant-domains)).
 
 ### Resident admission
 
 A run first admits the grammar and every initial genome into the phase-gene
-genotype. A grammar is rejected when a construct cannot be held by that
-genotype (for example lowering capacity within the depth budget, or
-productions sharing a root node). A genome is rejected when it does not share
-the population's fixed skeleton. Rejection is an error raised before the first
-generation: the run stops with a diagnostic that begins with
+genotype. Unit productions, alias cycles, repeated template holes and
+single-program grammars are admitted (see [Resident variation](#resident-variation)).
+
+The genome layout is a function of the grammar and the initial population:
+
+1. A grammar whose entry has exactly one production, a template, and which
+   uses no `let` or traversal primitive is a region-template candidate. Its
+   population takes the region-template layout (the template fixed, the holes
+   of its one bounded region varied as separate phases) when every member
+   takes it with one fixed skeleton. A member does not take it when its
+   template holds anything other than one bounded region whose variable holes
+   are exactly its phases, more than 8 variable phases, a phase grammar with a
+   `let` or with constant domains other than Int, Bool and the empty IntList,
+   or a skeleton constant outside those types.
+2. Every other population, including a candidate's whose members do not all
+   take the region-template layout, takes the whole-program layout: one phase
+   holding the whole program.
+
+A `resource_charge` has no effect on admission or on search.
+
+A grammar or initial population is rejected when it exceeds a
+[resident capacity](#resident-capacities), when a construct cannot be held by
+the genotype (for example lowering capacity within the depth budget), or when
+it uses one of three constructs of the language that the resident engine does
+not yet hold: `sequence` constant domains, a nonterminal reached under two
+different lexical binder environments, and a traversal inside a bounded region
+phase. A genome is rejected when it does not share the population's fixed
+skeleton. Rejection is an error raised before the first generation: the run
+stops with a diagnostic that begins with
 `resident engine cannot admit this grammar or initial population:` and names
-the construct. `gagp run` then exits with status 2 and writes no result. No
-other engine runs instead.
+the limit or construct and the offending value. `gagp run` then exits with
+status 2 and writes no result. No other engine runs instead.
+
+### Resident capacities
+
+These are the limits of the language on the resident engine: a grammar, an
+initial population or a run that exceeds one is rejected at admission, and the
+message names the limit and the offending value. Program-shape limits are
+proven over every program the grammar can derive within its `search_limits`,
+so variation never builds a program beyond them. The one exception is the
+number of bounded regions in one program, which is checked per program like
+`max_nodes`: admission refuses an initial member with more, and generation
+and variation reject a candidate with more and draw or try again.
+
+| Resource | Limit |
+| --- | --- |
+| Population | 16384 members |
+| `search_limits.max_depth` | 64 |
+| `search_limits.max_nodes` | 2048 |
+| Nodes of one phase (in the whole-program layout, of the whole program) | 1024 |
+| `search_limits.max_nodes` of a Program-entry grammar | 512 |
+| Program inputs | 64 |
+| Grammar locals referenced by the grammar | 16 |
+| Locals of a lowered program (inputs, grammar locals and temporaries) on one path | 64 |
+| Open traversals / `let`s / loops on one path | 8 / 16 / 16 |
+| Analysed value `if`s on one path under an open traversal | 16 |
+| Visible lexical bindings | 15 |
+| Static binder numbers (`let` and traversal bindings) | 16 |
+| Bindings in the scope of a nonterminal, reference, template or hole | 8 |
+| Operands plus phases of one bounded region | 8 |
+| Captures of one bounded region | 8 |
+| Bindings of one bounded region phase | 7 |
+| Bounded regions in one program | 4 |
+| Frames / memo cells declared by one bounded region plan | 1024 / 4096, checked by `validate_region_plan` on both engines (see the [region workspace](../docs/design/payload.md#region-workspace)) |
+| Reachable traversal and bounded region expressions | 1024 |
+| Values of one finite constant domain / of all reachable domains | 65536 / 1048576 |
+| Grammar table: (expressions + 1) x (`max_depth` + 1), and with `limits.site_depth` expressions x (`max_depth` + 1) x (`site_depth` + 1) | 4194304 entries |
+| Alternatives produced by inlining unit productions | 65536 |
+| GPU genotype workspace (population x phases x 1024 nodes) | 12 GiB |
 
 ### Engine equivalence
 

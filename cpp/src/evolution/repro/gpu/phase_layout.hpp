@@ -46,8 +46,9 @@ struct NativePhaseLayout {
   std::vector<std::string> input_names, local_names;
 };
 inline void phase_layout_require(bool condition, const char* reason) {
-  if (!condition) throw std::invalid_argument(std::string("native GPU phase layout: ") + reason);
+  if (!condition) throw std::invalid_argument(std::string("resident phase layout: ") + reason);
 }
+inline void phase_layout_require(bool condition, const std::string& reason) { phase_layout_require(condition, reason.c_str()); }
 // Native name of a grammar local read or a named control target; null otherwise.
 inline const std::string* phase_target_name(const grammar::CompiledGrammar& grammar, const grammar::CompiledExpression& e) {
   if (e.kind == grammar::ExpressionKind::Local) return &grammar.locals().at(e.target).name;
@@ -85,13 +86,24 @@ inline bool phase_grammar_binds_lexically(const grammar::CompiledGrammar& gramma
   return false;
 }
 
+// Region-template candidates: the entry's only production is a template and
+// no let or traversal primitive exists (the ASGP shape). Every other grammar
+// imports whole programs.
+inline bool phase_region_template_candidate(const grammar::CompiledGrammar& grammar) {
+  const auto& entry = grammar.nonterminals()[grammar.entry()];
+  return entry.category == NodeCategory::Expression && entry.productions.size() == 1 &&
+      grammar.expressions()[grammar.productions()[entry.productions[0]].expression].kind ==
+          grammar::ExpressionKind::Template && !phase_grammar_binds_lexically(grammar);
+}
+
 // A secondary population import may omit duplicate profile storage: it is used
 // only as transport and must not itself serve as an export template. Admission
 // still runs against its own AST. A matching private certificate may reuse the
 // witness and executable; otherwise ordinary reconstruction/lowering applies.
 inline NativePhaseLayout import_native_phase_layout(const grammar::CompiledGrammar& grammar,
     const ProgramGenome& external, NativePhaseGrammarProfiles* profiles=nullptr,
-    const std::vector<std::string>* evaluator_inputs=nullptr, bool retain_profiles=true) {
+    const std::vector<std::string>* evaluator_inputs=nullptr, bool retain_profiles=true,
+    bool whole_program_only=false) {
   using namespace grammar;
   NativePhaseLayout result;
   VerifiedAst verified; std::vector<std::vector<int>> environments;
@@ -112,7 +124,10 @@ inline NativePhaseLayout import_native_phase_layout(const grammar::CompiledGramm
     depths[i] = pending.size(); --pending.back();
     const auto arity = node_prefix_arity(ast.nodes[i]); if (arity) pending.push_back(arity);
   }
-  if (witness.templates.empty() || ast.bounded_region_specs.size() != 1 || phase_grammar_binds_lexically(grammar)) {
+  // Region mode needs a region-template candidate grammar, so members of any
+  // other grammar all import in whole-program mode.
+  if (whole_program_only || !phase_region_template_candidate(grammar) || witness.templates.empty() ||
+      ast.bounded_region_specs.size() != 1) {
     // Whole-program mode: the entry nonterminal's outermost choice is the phase.
     // Templates, lets, traversals and bounded regions are phase nodes; the
     // phase grammar rejects every other lexical region primitive.
@@ -146,7 +161,7 @@ inline NativePhaseLayout import_native_phase_layout(const grammar::CompiledGramm
   for (const auto& value : ast.consts)
     phase_layout_require(value.tag == ValueTag::Int || value.tag == ValueTag::Bool ||
         (value.tag == ValueTag::IntList && Value::container_len(value) == 0),
-                         "registry/noninteger constants require native fallback");
+                         "region-template layout holds only Int, Bool and empty IntList constants");
   const auto& entry = grammar.nonterminals()[grammar.entry()];
   phase_layout_require(entry.category == NodeCategory::Expression && entry.productions.size() == 1,
                        "requires a single expression-root production");
@@ -157,29 +172,27 @@ inline NativePhaseLayout import_native_phase_layout(const grammar::CompiledGramm
   std::set<unsigned> holes;
   std::function<void(unsigned,bool)> inspect = [&](unsigned id, bool root) {
     const auto& e = grammar.expressions().at(id);
-    phase_layout_require(e.resource_charge.nodes <= 1 && e.resource_charge.depth <= 1 &&
-        !e.resource_charge.resets_depth, "weighted/reset skeleton resources require native fallback");
-    if (e.kind == ExpressionKind::Template) phase_layout_require(root, "nested templates require fallback");
+      if (e.kind == ExpressionKind::Template) phase_layout_require(root, "region-template layout has no nested template");
     if (e.kind == ExpressionKind::Hole) {
       phase_layout_require(holes.insert(e.target).second && e.children.size() == 1,
-                           "repeated holes require atomic-group fallback");
+                           "region-template layout has no repeated hole");
       const auto& child = grammar.expressions().at(e.children[0]);
       if (child.kind == ExpressionKind::Reference) {
         variable_holes.emplace(e.target, child.target); return;
       }
     }
     phase_layout_require(e.kind != ExpressionKind::Reference && e.kind != ExpressionKind::Local,
-                         "variable skeleton requires native fallback");
+                         "region-template layout has a fixed skeleton");
     if (e.kind == ExpressionKind::Constant) {
       const auto& domain = grammar.constants().at(e.target);
       phase_layout_require(!domain.float_range && !domain.elements &&
           (domain.integer_range ? domain.minimum == domain.maximum : domain.values.size() == 1),
-          "non-singleton skeleton constant requires fallback");
+          "region-template layout has only singleton skeleton constants");
     }
     for (auto child : e.children) inspect(child, false);
   };
   inspect(root_expression, true);
-  phase_layout_require(!variable_holes.empty(), "no variable phases");
+  phase_layout_require(!variable_holes.empty(), "region-template layout needs a variable phase");
   const auto& region = ast.bounded_region_specs[0];
   std::map<std::size_t, std::pair<std::size_t, std::size_t>> phases;
   std::size_t cursor = region.node_index + 1;
@@ -192,7 +205,7 @@ inline NativePhaseLayout import_native_phase_layout(const grammar::CompiledGramm
   for (const auto& hole : witness.holes) {
     const auto found = variable_holes.find(hole.slot);
     if (found == variable_holes.end()) continue;
-    phase_layout_require(found_holes.insert(hole.slot).second, "coupled hole instance requires fallback");
+    phase_layout_require(found_holes.insert(hole.slot).second, "region-template layout fills each hole once");
     const auto phase = phases.find(hole.ast_begin);
     phase_layout_require(phase != phases.end() && phase->second.first == hole.ast_end,
                          "variable hole must cover one complete bounded phase");
@@ -207,15 +220,19 @@ inline NativePhaseLayout import_native_phase_layout(const grammar::CompiledGramm
     });
     phase_layout_require(choice != witness.choices.end() &&
         environments.at(choice - witness.choices.begin()) == slot.binders,
-        "phase/formal lexical order requires explicit normalization fallback");
+        "region-template layout needs phase bindings in formal scope order");
     result.slots.push_back(std::move(slot));
   }
   phase_layout_require(found_holes.size() == variable_holes.size(), "variable hole missing from admission witness");
+  phase_layout_require(result.slots.size() <= std::size_t(kPhaseSlots), "region-template layout holds at most " +
+      std::to_string(kPhaseSlots) + " variable phases, this template has " + std::to_string(result.slots.size()));
   }
   std::sort(result.slots.begin(), result.slots.end(), [](const auto& a,const auto& b){return a.begin < b.begin;});
   result.fixed_nodes = ast.nodes.size(); result.budget = grammar.search_limits();
-  phase_layout_require(result.budget.max_nodes <= 2048 && result.budget.max_depth <= 64,
-                       "GPU genotype capacity requires fallback");
+  phase_layout_require(result.budget.max_nodes <= kPhaseProgramNodes && result.budget.max_depth <= kPhaseProgramDepth,
+      "search_limits {max_nodes " + std::to_string(result.budget.max_nodes) + ", max_depth " +
+      std::to_string(result.budget.max_depth) + "} exceed the resident capacity of " + std::to_string(kPhaseProgramNodes) +
+      " nodes and depth " + std::to_string(kPhaseProgramDepth));
   for (const auto& slot : result.slots) {
     result.fixed_nodes -= slot.end - slot.begin;
     HostPhaseGrammar uncached_profile;
@@ -228,7 +245,10 @@ inline NativePhaseLayout import_native_phase_layout(const grammar::CompiledGramm
       phase_layout_require(expression != kNoGrammarId && expression < profile.expressions.size(), "missing expression origin");
       if (i == slot.begin)
         phase_layout_require(!profile.statements || (result.whole_program && !result.program_terminator &&
-            result.budget.max_nodes <= 512), "statements require a Program-entry whole program of at most 512 nodes");
+            result.budget.max_nodes <= kPhaseStatementNodes), result.whole_program && !result.program_terminator ?
+            "statement program search_limits max_nodes " + std::to_string(result.budget.max_nodes) +
+            " exceeds the statement program capacity of " + std::to_string(kPhaseStatementNodes) + " nodes" :
+            std::string("statements occur only in a Program-entry grammar"));
       const auto& e = grammar.expressions().at(expression); auto node = profile.expressions[expression].node;
       const auto& actual = ast.nodes[i];
       phase_layout_require(actual.kind == static_cast<NodeKind>(profile.expressions[expression].native_kind), "origin/native node mismatch");
@@ -251,8 +271,37 @@ inline NativePhaseLayout import_native_phase_layout(const grammar::CompiledGramm
       }
       gene.nodes.push_back(node); gene.origins.push_back(expression);
     }
-    phase_layout_require(gene.nodes.size() <= 1024, "per-phase genotype capacity requires fallback");
-    phase_layout_require(result.whole_program || !profile.lets, "let binders inside region phases require native fallback");
+    phase_layout_require(gene.nodes.size() <= kPhaseRowNodes, "a phase of " + std::to_string(gene.nodes.size()) +
+        " nodes exceeds the phase capacity of " + std::to_string(kPhaseRowNodes) + " nodes");
+    const int regions = phase_region_count(gene.nodes.data(), static_cast<int>(gene.nodes.size()));
+    phase_layout_require(regions <= kPhaseMaxRegions, "a program of " + std::to_string(regions) +
+        " bounded regions exceeds the capacity of " + std::to_string(kPhaseMaxRegions) + " bounded regions per program");
+    if (!profile.shared.empty()) {
+      // A native derivation copies a repeated hole's first fill with its own
+      // expression ids; the phase genotype names every copy after its
+      // occurrence (see share_phase_tree), which this rebuild establishes.
+      const int count = gene.nodes.size(), constants = gene.constants.size();
+      std::vector<PhaseTreeNode> nodes(1024); std::vector<int> origins(1024);
+      std::vector<PhaseGeneSite> sites(1024); std::vector<Value> values(1024);
+      const PhaseTreeView in{gene.nodes.data(), gene.origins.data(), nullptr, gene.constants.data(), count, constants};
+      const auto shared = share_phase_tree<true>(phase_structure_view(profile), int(profile.root_expression),
+          int(grammar.nonterminals().at(slot.nonterminal).scope.size()), in, {nodes.data(), origins.data(), sites.data(), values.data(), 1024});
+      phase_layout_require(shared.status == PhaseCompileStatus::Ok && shared.nodes == count && shared.constants == constants,
+                           "repeated hole copies differ");
+      gene.nodes.assign(nodes.begin(), nodes.begin() + count); gene.origins.assign(origins.begin(), origins.begin() + count);
+      gene.constants.assign(values.begin(), values.begin() + constants);
+    }
+    phase_layout_require(result.whole_program || !profile.lets, "region-template layout has no let binder inside a phase");
+    // Variation draws from the phase grammar, so its constant domains obey the
+    // same restriction as the member's constants.
+    if (!result.whole_program) {
+      for (const auto& domain : profile.domains)
+        phase_layout_require(!domain.float_range, "region-template layout holds only Int, Bool and empty IntList constant domains");
+      for (const auto& value : profile.values)
+        phase_layout_require(value.tag == ValueTag::Int || value.tag == ValueTag::Bool ||
+            (value.tag == ValueTag::IntList && Value::container_len(value) == 0),
+            "region-template layout holds only Int, Bool and empty IntList constant domains");
+    }
     if (retain_profiles) {
       if (profiles) result.profiles.push_back(profile);
       else result.profiles.push_back(std::move(uncached_profile));
@@ -311,6 +360,43 @@ inline std::string native_phase_skeleton_key(const NativePhaseLayout& layout) {
  }
  ast.consts=std::move(constants);
  return ast_cache_key(compact_genome_tables(std::move(skeleton)).ast);
+}
+
+// Imports a population under one layout, a function of the grammar and the
+// members only. A region-template candidate first tries exactly the layout of
+// its first member, as every single import chooses it; when a member cannot
+// take that layout or the members do not share one fixed skeleton, the whole
+// population imports whole programs instead. The first layout retains its
+// profiles; later ones keep only their slots, genes and executable.
+inline std::vector<NativePhaseLayout> import_native_phase_population(const grammar::CompiledGrammar& grammar,
+    const std::vector<ProgramGenome>& input, NativePhaseGrammarProfiles* profiles,
+    const std::vector<std::string>* evaluator_inputs) {
+  phase_layout_require(!input.empty(), "empty population");
+  const auto import_all = [&](bool whole_program_only) {
+    std::vector<NativePhaseLayout> layouts; layouts.reserve(input.size());
+    std::string key;
+    for (std::size_t p = 0; p < input.size(); ++p) {
+      auto imported = import_native_phase_layout(grammar, input[p], profiles, evaluator_inputs, p == 0, whole_program_only);
+      if (p == 0) key = native_phase_skeleton_key(imported);
+      else {
+        const auto& first = layouts.front();
+        phase_layout_require(imported.whole_program == first.whole_program && imported.slots.size() == first.slots.size() &&
+            native_phase_skeleton_key(imported) == key, "members do not share one fixed skeleton");
+        for (std::size_t k = 0; k < first.slots.size(); ++k) {
+          const auto& a = imported.slots[k]; const auto& b = first.slots[k];
+          phase_layout_require(a.nonterminal == b.nonterminal && a.ordinal == b.ordinal && a.binders == b.binders &&
+              a.max_depth == b.max_depth, "members do not share one phase contract");
+        }
+        imported.prototype = {};
+      }
+      layouts.push_back(std::move(imported));
+    }
+    return layouts;
+  };
+  if (phase_region_template_candidate(grammar)) {
+    try { return import_all(false); } catch (const std::invalid_argument&) {}
+  }
+  return import_all(true);
 }
 
 // Export only. The caller supplies a private run's current device copyback;

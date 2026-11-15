@@ -32,22 +32,33 @@ with status 2 without writing a result. No other engine runs instead.
 
 ## Genome layouts
 
-A genome is one of two layouts, chosen from the grammar:
+A genome is one of two layouts, chosen by `import_native_phase_population`
+(`phase_layout.hpp`) from the grammar and the initial population. The rule is
+in [Resident admission](../../spec/search_config.md#resident-admission).
 
-- **Whole program.** A grammar without templates is admitted as one phase
+- **Region template.** A candidate grammar (entry with one template
+  production, no `let` or traversal primitive) keeps the template fixed and
+  varies up to 8 independent phases, the holes of its one bounded region. The
+  population first imports exactly as each member's own import chooses; it
+  keeps this layout only when every member takes it with one fixed skeleton.
+  A phase grammar with Float, String or nonempty list constant domains never
+  takes it, because variation would draw constants the layout does not hold.
+- **Whole program.** Every other population, including a candidate's whose
+  members do not all fit the region template, is imported again as one phase
   holding the whole program. An expression entry is lowered and completed by
   the native program terminator (`patch_whole_program`); a Program entry
   lowers its statements (`assign`, `return`, `if_stmt`, `for_range`, blocks,
   up to 16 grammar locals) exactly as the native compiler does, including its
-  first-use local order. Statement programs are limited to 512 nodes.
-- **Region template.** A grammar whose genomes share one fixed root template
-  with exactly one bounded region, and no `let` or traversal primitive, keeps
-  the template fixed and varies up to 8 independent phases (the holes of the
-  template).
+  first-use local order.
+
+Initial population generation (`generate_phase_initial_population`) applies
+the same rule to its prototype program.
 
 Phase expressions may use all eight value types, any catalog operation of
-matching arity, grammar inputs, finite constant domains of any type and Int
-ranges. Whole-program phases may also contain:
+matching arity, grammar inputs, finite constant domains of any type, Int
+ranges, Float ranges (quantized or not, sampled by `numeric_sampling.hpp`
+exactly as native construction) and `sample_from` samplers. `sequence`
+constant domains are not held yet. Whole-program phases may also contain:
 
 - **`let` binders**, numbered statically: every nonterminal is entered under
   exactly one binder environment, so generation never renumbers. A grammar that
@@ -61,26 +72,56 @@ ranges. Whole-program phases may also contain:
   with its bindings, and variation inside a phase uses the phase's own scope.
 
 Templates and holes are zero-node wrappers: a site on a template production
-passes to its first physical node, so production roots must resolve to
-distinct nodes. A hole repeated in its template body is admitted only when its
-fill is fixed. A grammar whose only member is one fixed program is rejected,
-and so is a genome whose fixed template structure carries a
-`resource_charge` other than the default (more than one node or depth level,
-or a depth reset).
+passes to its first physical node, and site annotation recovers a production
+from that node's expression id. Phase grammar construction
+(`compile_phase_grammar`, shared by both owners) therefore inlines every unit
+production: an alternative that resolves through wrappers to a reference is
+replaced by the referenced alternatives with multiplied weights, alias-cycle
+alternatives are dropped and diamonds are merged (the rules are in
+[Resident variation](../../spec/search_config.md#resident-variation)). Every
+production root then resolves to a node, and the alternatives of one
+nonterminal to distinct nodes. An inlined chain carries the outermost
+nonterminal's site only, so `variation: false` on an inner nonterminal of the
+chain has no effect at that node, and an inner variable nonterminal under a
+fixed outer one is not a separate site.
+
+A hole repeated in its template body is one shared derivation
+(`PhaseSharedHole`). Fills are compiled separately per occurrence, in
+post-order, so the first fill's expressions (up to references) occupy a
+contiguous id range and each later fill is the same shape shifted by a
+constant; construction verifies this. The genotype holds every occurrence:
+`share_phase_tree` walks a tree, records the first occurrence in prefix order
+and makes each later one an exact copy, with its own fill's expression ids,
+binder numbers and region entries, the first's choices below references and
+constant values, and fixed sites. Generation, crossover and mutation run
+unchanged and then rebuild the copies through the child's scratch row; a
+rebuilt program over the node, depth or site-depth budget is rejected. Import
+renames the copies of an imported member (whose copies carry the first
+occurrence's ids) the same way, and annotation checks that every copy is
+exact. A grammar whose only member is one fixed program is admitted with no
+variable site. A `resource_charge` is ignored: it never changes a layout or a
+search.
 
 ## Capacities
 
-Admission bounds every resource over every program the grammar can derive
-within its depth budget, so variation never produces a program the engine
-cannot lower or hold:
+The capacities are the language's limits on the resident engine, listed with
+their values in [Resident capacities](../../spec/search_config.md#resident-capacities).
+Admission checks them in three places, each message naming the limit and the
+offending value:
 
-| Resource | Limit |
-| --- | --- |
-| Population | 16384 members |
-| Whole-program grammar budget | 2048 nodes, depth 64 |
-| One variable phase | 1024 nodes |
-| Open traversals / lets / loops / analysed value `if`s on one path | 8 / 16 / 16 / 16 |
-| Locals | 64 |
+- `compile_phase_grammar` (`phase_grammar.hpp`): every bound over the
+  programs the grammar can derive within its depth budget (scopes, bindings,
+  binder numbers, inputs, grammar locals, region shapes, constant domains,
+  tables, unit inlining, and the lowering bound on locals, open traversals,
+  lets, loops and value `if`s), so variation never produces a program the
+  engine cannot lower or hold.
+- `import_native_phase_layout` (`phase_layout.hpp`): `search_limits`, the
+  nodes and bounded regions of each imported phase and the statement program
+  size. Generation and variation reject a candidate with more than 4 bounded
+  regions (`phase_region_count`), as they reject one over the node budget.
+- The owners' constructors: population size, program inputs, phase count and,
+  on the GPU, the genotype workspace and the evaluator's local, frame and
+  memo capacities of the first member.
 
 A child that reads a local before native definite assignment would define it
 is rejected: crossover tries its next site, mutation keeps the crossed child,

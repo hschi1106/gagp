@@ -43,7 +43,7 @@ struct HostProfile {
  PhaseGrammarView view()const{return {grammar.expressions.data(),int(grammar.expressions.size()),productions.data(),int(productions.size()),
   nonterminals.data(),int(nonterminals.size()),grammar.domains.data(),int(grammar.domains.size()),grammar.values.data(),int(grammar.values.size()),
   grammar.minimum.data(),grammar.depth_count,grammar.logical_depth_count,grammar.site_depth,
-  grammar.regions.data(),int(grammar.regions.size())};}
+  grammar.regions.data(),int(grammar.regions.size()),{},{},{},{},{},grammar.shared.empty()?nullptr:grammar.shared.data()};}
 };
 // The CPU reference engine is single-threaded.
 template<class Function> void each_row(int count,Function function) {
@@ -54,7 +54,8 @@ template<class Function> void each_row(int count,Function function) {
 std::vector<ProgramGenome> generate_phase_initial_population(
     const grammar::CompiledGrammar& grammar, const grammar::GenerationRequest& request,
     const std::vector<std::string>& input_names, int population, std::uint64_t seed, int site_depth) {
- phase_layout_require(population>0 && population<=16384 && site_depth>=1 && site_depth<=15,"initial population size/site depth");
+ phase_layout_require(population>0 && site_depth>=1 && site_depth<=15,"initial population size/site depth");
+ phase_layout_require(population<=kPhasePopulation,"population of "+std::to_string(population)+" members exceeds the resident capacity of "+std::to_string(kPhasePopulation));
  // The layout prototype is any verified member. A statement grammar may
  // generate a read of an unassigned local; the next seed is tried instead.
  const auto prototype=[&] {
@@ -63,8 +64,14 @@ std::vector<ProgramGenome> generate_phase_initial_population(
    catch(const std::invalid_argument&){phase_layout_require(attempt<255,"no verified prototype program");}
   }
  }();
- const auto layout=import_native_phase_layout(grammar,prototype,nullptr,&input_names,true);
- const int slots=layout.slots.size();phase_layout_require(slots>0 && slots<=8,"phase count capacity");
+ // The prototype's layout follows import_native_phase_population: region
+ // template when the prototype takes it, whole program otherwise.
+ const auto layout=[&] {
+  if(phase_region_template_candidate(grammar))
+   try{return import_native_phase_layout(grammar,prototype,nullptr,&input_names,true);}catch(const std::invalid_argument&){}
+  return import_native_phase_layout(grammar,prototype,nullptr,&input_names,true,true);
+ }();
+ const int slots=layout.slots.size();phase_layout_require(slots>0 && slots<=kPhaseSlots,"phase count");
  std::vector<std::unique_ptr<HostProfile>> profiles;
  for(const auto& slot:layout.slots)profiles.push_back(std::make_unique<HostProfile>(
      compile_phase_variation_grammar(grammar,slot.nonterminal,grammar.search_limits().max_depth,site_depth,&input_names)));
@@ -78,6 +85,8 @@ std::vector<ProgramGenome> generate_phase_initial_population(
   x=(x^(x>>27))*UINT64_C(0x94d049bb133111eb);return x^(x>>31);};
  std::vector<ProgramGenome> out;out.reserve(population);
  std::vector<PhaseTreeNode> nodes(capacity);std::vector<int> origins(capacity);std::vector<Value> constants(capacity);
+ std::vector<PhaseTreeNode> shared_nodes(capacity);std::vector<int> shared_origins(capacity);std::vector<Value> shared_constants(capacity);
+ std::vector<PhaseGeneSite> shared_sites(capacity);
  for(int i=0;i<population;++i) {
   const int ramp=site_depth<2?site_depth:2+i%(site_depth-1);
   std::vector<HostPhaseGene> genes(slots);int used=0;
@@ -95,8 +104,24 @@ std::vector<ProgramGenome> generate_phase_initial_population(
     generated=generate_phase<true,false,false>(profile.view(),profile.grammar.root_expression,int(nt.scope.size()),
         slot.max_depth,int(room),mix(seed^mix((std::uint64_t(i)*8+k)*64+attempt)),
         nodes.data(),origins.data(),constants.data(),nullptr,logical);
+    // Repeated template holes: every later occurrence becomes a copy of the
+    // first, which must still fit the room, the depth and the site depth.
+    if(generated.status==PhaseCompileStatus::Ok && !profile.grammar.shared.empty()) {
+     const PhaseTreeView in{nodes.data(),origins.data(),nullptr,constants.data(),generated.nodes,generated.constants};
+     const auto shared=share_phase_tree<true>(profile.view(),profile.grammar.root_expression,int(nt.scope.size()),in,
+         {shared_nodes.data(),shared_origins.data(),shared_sites.data(),shared_constants.data(),capacity});
+     const int depth=shared.status==PhaseCompileStatus::Ok?phase_tree_depth(shared_nodes.data(),shared.nodes):-1;
+     const int height=depth>0?phase_site_depth(shared_nodes.data(),shared_sites.data(),shared.nodes):-1;
+     if(shared.nodes>room || depth<=0 || depth>int(slot.max_depth) || height<0 || height>logical)generated.status=PhaseCompileStatus::Capacity;
+     else {
+      std::copy_n(shared_nodes.begin(),shared.nodes,nodes.begin());std::copy_n(shared_origins.begin(),shared.nodes,origins.begin());
+      std::copy_n(shared_constants.begin(),shared.constants,constants.begin());generated.nodes=shared.nodes;generated.constants=shared.constants;
+     }
+    }
     if(generated.status==PhaseCompileStatus::Ok && layout.whole_program && !layout.program_terminator &&
         !phase_locals_defined(nodes.data(),generated.nodes))generated.status=PhaseCompileStatus::Invalid;
+    if(generated.status==PhaseCompileStatus::Ok && phase_region_count(nodes.data(),generated.nodes)>kPhaseMaxRegions)
+     generated.status=PhaseCompileStatus::Capacity;
     if(generated.status!=PhaseCompileStatus::Ok && attempt%4==3 && logical<site_depth)++logical;
     phase_layout_require(attempt<256,"initial phase generation failed");
    }
@@ -178,12 +203,13 @@ HostPhasePopulation::HostPhasePopulation(std::shared_ptr<const grammar::Compiled
     int site_depth,const PhaseVariationPolicy& policy):impl_(std::make_unique<Impl>()) {
  auto& s=*impl_;s.grammar=std::move(grammar);
  validate_phase_variation_policy(policy);
- phase_layout_require(site_depth>=0 && site_depth<=15,"site depth must be0..15");
- phase_layout_require(s.grammar && !input.empty() && input.size()<=16384,"population/grammar capacity");
+ phase_layout_require(site_depth>=0 && site_depth<=15,"site depth must be 0..15");
+ phase_layout_require(s.grammar && !input.empty(),"empty population");
+ phase_layout_require(input.size()<=std::size_t(kPhasePopulation),"population of "+std::to_string(input.size())+" members exceeds the resident capacity of "+std::to_string(kPhasePopulation));
  std::set<std::string> expected_names,actual_names(input_names.begin(),input_names.end());
  for(const auto& binding:s.grammar->inputs())expected_names.insert(binding.name);
  phase_layout_require(actual_names==expected_names && actual_names.size()==input_names.size(),"input names must exactly cover grammar inputs");
- phase_layout_require(input_names.size()<=64,"input local capacity");
+ phase_layout_require(input_names.size()<=64,std::to_string(input_names.size())+" program inputs exceed the resident capacity of 64 input locals");
  s.operators.counted_sites=policy.site_draw==PhaseSiteDraw::Counted;
  s.operators.uniform_phase=policy.site_scope==PhaseSiteScope::UniformPhase;
  s.operators.crossover_probability=policy.crossover_probability;
@@ -192,15 +218,16 @@ HostPhasePopulation::HostPhasePopulation(std::shared_ptr<const grammar::Compiled
  // Serial copies stay eager (deferred_copy=false); both schedules are exact.
  NativePhaseGrammarProfiles import_profiles(s.grammar,input_names);
  s.population=input.size();
- s.layout=import_native_phase_layout(*s.grammar,input.front(),&import_profiles,&input_names,true);
+ auto imports=import_native_phase_population(*s.grammar,input,&import_profiles,&input_names);
+ s.layout=imports.front();
  if(site_depth)for(std::size_t k=0;k<s.layout.slots.size();++k)
   s.layout.profiles[k]=compile_phase_variation_grammar(*s.grammar,s.layout.slots[k].nonterminal,s.grammar->search_limits().max_depth,site_depth,&input_names);
  s.profile=site_depth?"resident-cpu-v4-site-depth"+std::to_string(site_depth):
      s.operators.counted_sites?"resident-cpu-v2-counted":"resident-cpu-v1";
  s.profile+=phase_variation_profile_suffix(policy);
  if(s.operators.uniform_phase)s.profile+="-uniform-phase";
- s.slot_count=s.layout.slots.size();phase_layout_require(s.slot_count>0 && s.slot_count<=8,"phase count capacity");
- const auto key=native_phase_skeleton_key(s.layout);const std::size_t rows=input.size()*s.slot_count;
+ s.slot_count=s.layout.slots.size();phase_layout_require(s.slot_count>0 && s.slot_count<=kPhaseSlots,"phase count");
+ const std::size_t rows=input.size()*s.slot_count;
  s.current=std::make_unique<HostTrees>(rows);s.crossed=std::make_unique<HostTrees>(rows);
  s.next=std::make_unique<HostTrees>(input.size());s.scratch=std::make_unique<HostTrees>(input.size());
  for(int k=0;k<s.slot_count;++k) {
@@ -219,11 +246,8 @@ HostPhasePopulation::HostPhasePopulation(std::shared_ptr<const grammar::Compiled
  }
  auto trees=s.current->pointers();
  for(std::size_t p=0;p<input.size();++p) {
-  auto imported=p==0?s.layout:import_native_phase_layout(*s.grammar,input[p],&import_profiles,&input_names,false);
-  phase_layout_require(imported.slots.size()==s.layout.slots.size() && native_phase_skeleton_key(imported)==key,"mixed fixed skeleton requires native fallback");
+  auto& imported=imports[p];
   for(int k=0;k<s.slot_count;++k) {
-   const auto& a=imported.slots[k];const auto& b=s.layout.slots[k];
-   phase_layout_require(a.nonterminal==b.nonterminal && a.ordinal==b.ordinal && a.binders==b.binders && a.max_depth==b.max_depth,"mixed phase contract requires fallback");
    const int row=p*s.slot_count+k;const auto& gene=imported.genes[k];auto& l=trees.lengths[row];
    l={};l.status=PhaseCompileStatus::Ok;l.nodes=gene.nodes.size();l.constants=gene.constants.size();
    phase_layout_require(l.nodes>0 && l.nodes<=capacity && l.constants<=l.nodes,"imported phase capacity");
@@ -231,7 +255,7 @@ HostPhasePopulation::HostPhasePopulation(std::shared_ptr<const grammar::Compiled
    std::copy(gene.nodes.begin(),gene.nodes.end(),out.nodes);std::copy(gene.origins.begin(),gene.origins.end(),out.origins);
    std::copy(gene.constants.begin(),gene.constants.end(),out.constants);
    const auto& slot=s.slots[k];const auto t=trees.view(row);
-   phase_layout_require(annotate_phase_tree(slot.grammar,slot.root,slot.scope,t.nodes,t.origins,t.node_count,out.sites) &&
+   phase_layout_require(annotate_phase_tree(slot.grammar,slot.root,slot.scope,t.nodes,t.origins,t.node_count,out.sites,t.constants,t.constant_count) &&
        !(slot.grammar.site_depth && phase_site_depth(t.nodes,out.sites,t.node_count)>slot.logical_depth),"import site annotation failed");
   }
   s.programs.push_back(std::move(imported.executable));
@@ -277,7 +301,7 @@ ReproductionStats HostPhasePopulation::reproduce(const std::vector<double>& comp
  const double* fitness=completed_fitness.data();
  // Same per-child bodies and draw order as the GPU kernels; children are independent.
  each_row(p,[&](int child) {
-  crossover_child<false>(child,current,crossed,s.slots.data(),k,p,available,fitness,pressure,seed,s.operators,s.stats[child]);
+  crossover_child<false>(child,current,crossed,scratch,s.slots.data(),k,p,available,fitness,pressure,seed,s.operators,s.stats[child]);
   mutate_child<false>(child,crossed,next,scratch,s.slots.data(),k,available,probability,seed,s.operators,s.stats[child]);
  });
  // Elites: highest completed fitness, ties to the lowest source index.
@@ -329,7 +353,7 @@ std::vector<int> HostPhasePopulation::make_batch(const std::vector<double>& sele
  const auto current=s.current->pointers(),crossed=s.crossed->pointers(),next=s.next->pointers(),scratch=s.scratch->pointers();
  // The GPU kernel bodies with `b` children drawing parents from all p members.
  each_row(b,[&](int child) {
-  crossover_child<false>(child,current,crossed,s.slots.data(),k,p,available,selection_fitness.data(),pressure,seed,s.operators,s.stats[child]);
+  crossover_child<false>(child,current,crossed,scratch,s.slots.data(),k,p,available,selection_fitness.data(),pressure,seed,s.operators,s.stats[child]);
   mutate_child<false>(child,crossed,next,scratch,s.slots.data(),k,available,probability,seed,s.operators,s.stats[child]);
   compare_child(child,current,crossed,p,k,s.stats[child]);
  });

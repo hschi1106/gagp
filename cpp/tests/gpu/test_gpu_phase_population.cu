@@ -609,7 +609,7 @@ void test_whole_program_node_budget() {
  auto too_large=cli_detail::JsonParser(R"({"signature":"add(Int,Int)->Int","args":[]})").parse();
  too_large.object_v.at("args").array_v={expression,cli_detail::JsonParser(R"({"bound":"base"})").parse()};
  const auto oversized=generate(too_large);declined=false;
- try{(void)repro::import_native_phase_layout(*owner_grammar,oversized);}catch(const std::invalid_argument& e){declined=std::string(e.what()).find("per-phase genotype capacity")!=std::string::npos;}
+ try{(void)repro::import_native_phase_layout(*owner_grammar,oversized);}catch(const std::invalid_argument& e){declined=std::string(e.what()).find("exceeds the phase capacity of 1024 nodes")!=std::string::npos;}
  require(declined,"per-phase node capacity ceased to reject oversized input");
  std::vector<std::string> names;for(const auto& input:owner_grammar->inputs())names.push_back(input.name);
  std::vector<CaseBindings> cases(16);std::vector<Value> answers(16,Value::from_int(0));

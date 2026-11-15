@@ -1,0 +1,28 @@
+{
+  "format_version": "grammar-definition-v2",
+  "entry": {"nonterminal": "F", "type": "Float"},
+  "inputs": [{"name": "x", "type": "Float"}, {"name": "n", "type": "Int"}],
+  "search_limits": {"max_nodes": 24, "max_depth": 8},
+  "execution_limits": {"fuel": 1000},
+  "nonterminals": [
+    {"id": "F", "type": "Float", "scope": [], "alternatives": [
+      {"id": "x", "weight": 2, "expression": {"input": "x"}},
+      {"id": "continuous", "weight": 1, "expression": {"constant": {"type": "Float", "range": [-4, 4]}}},
+      {"id": "quantized", "weight": 1, "expression": {"constant": {"type": "Float", "range": [-8, 8], "quantization_scale": 1000}}},
+      {"id": "sampled", "weight": 1, "expression": {"constant": {"type": "Float", "range": [-100, 100],
+        "sample_from": {"type": "Float", "range": [-2, 2], "quantization_scale": 10}}}},
+      {"id": "sampled_values", "weight": 1, "expression": {"constant": {"type": "Float", "range": [-1, 1],
+        "sample_from": {"type": "Float", "values": [-0.5, 0.25, 1]}}}},
+      {"id": "add", "weight": 2, "expression": {"signature": "add(Float,Float)->Float", "args": [{"ref": "F"}, {"ref": "F"}]}},
+      {"id": "ratio", "weight": 1, "expression": {"signature": "div(Int,Int)->Float", "args": [{"ref": "I"}, {"ref": "I"}]}},
+      {"id": "clip", "weight": 1, "expression": {"signature": "clip(Float,Float,Float)->Float", "args": [{"ref": "F"}, {"ref": "F"}, {"ref": "F"}]}}
+    ]},
+    {"id": "I", "type": "Int", "scope": [], "alternatives": [
+      {"id": "n", "weight": 1, "expression": {"input": "n"}},
+      {"id": "small", "weight": 1, "expression": {"constant": {"type": "Int", "range": ["-1000000", "1000000"],
+        "sample_from": {"type": "Int", "range": ["1", "9"]}}}},
+      {"id": "picked", "weight": 1, "expression": {"constant": {"type": "Int", "range": ["0", "100"],
+        "sample_from": {"type": "Int", "values": ["2", "3", "5", "7"]}}}}
+    ]}
+  ]
+}
