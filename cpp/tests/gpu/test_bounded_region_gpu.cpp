@@ -265,13 +265,15 @@ bool compare_fitness(const BytecodeProgram& program,
     return false;
   }
   const FitnessEvalResult gpu = session.eval_programs({program}, true);
+  // A failed launch (for example device memory held by another job) is
+  // reported as such, not as a count mismatch.
+  if (!check(gpu.ok, label + ": GPU evaluation failed: " + gpu.err.message)) return false;
   const auto errors = std::count_if(intended.begin(), intended.end(), [](const auto& c) { return !c.succeeds; });
   const auto timeouts = std::count_if(intended.begin(), intended.end(), [](const auto& c) { return !c.succeeds && c.error == ErrCode::Timeout; });
   if (!check(gpu.case_counts.size() == 1 && gpu.case_counts[0][0] == intended.size() &&
              gpu.case_counts[0][1] == errors && gpu.case_counts[0][2] == timeouts,
              label + ": exact case/error/timeout diagnostic counts")) return false;
-  return check(gpu.ok, label + ": GPU evaluation failed: " + gpu.err.message) &&
-         check(gpu.fitness.size() == 1,
+  return check(gpu.fitness.size() == 1,
                label + ": GPU fitness result shape changed") &&
          check(same_score(gpu.fitness[0], cpu[0]),
                label + ": CPU/GPU fitness mismatch (cpu=" +
