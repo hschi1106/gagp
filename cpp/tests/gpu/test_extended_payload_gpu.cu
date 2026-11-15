@@ -1,6 +1,7 @@
 #include <cuda_runtime.h>
 #include <algorithm>
 #include <cstdlib>
+#include <functional>
 #include <iostream>
 #include <new>
 #include <string>
@@ -1506,6 +1507,64 @@ bool test_allocation_charge_parity() {
   };
   add({"remove_at", remove_at, ints(200), around100, {101, 100, 99, 0}, two_over, removed(200, 100), false}, false);
 
+  // String builtins, simulated on std::string with the same charging rules:
+  // a concat with an empty operand is free, every other result is charged.
+  using StringStep = std::function<std::string(const std::string&, int, unsigned long long&)>;
+  const auto simulate = [](const StringStep& step, int n, unsigned long long charged) {
+    std::string acc;
+    for (int i = 0; i < n; ++i) acc = step(acc, i, charged);
+    return std::pair<unsigned long long, long long>{charged, static_cast<long long>(acc.size())};
+  };
+  const auto concat_charge = [](const std::string& a, const std::string& b) {
+    return a.empty() || b.empty() ? 0ULL : static_cast<unsigned long long>(a.size() + b.size());
+  };
+  const auto add_string = [&](const std::string& name, const BytecodeProgram& program, Value input,
+                              unsigned long long base, const StringStep& step, bool unlimited_replay) {
+    ChargeScenario s{name, program, input, around100, {}, two_over,
+                     static_cast<unsigned>(simulate(step, 100, base).first), false};
+    for (int n : s.counts) s.lengths.push_back(simulate(step, n, base).second);
+    add(s, unlimited_replay);
+  };
+  // acc = concat(acc, index_mod(s, i)): one charged byte, then the concat.
+  // The 3-byte input is charged when the case opens.
+  const auto abc = payload::make_string_value("abc");
+  const auto index_mod = counted_loop(blank, false, {ins_a(Opcode::Load, 1), ins_a(Opcode::Load, 3),
+      ins_a(Opcode::Load, 2), call(BuiltinId::IndexMod, 2), call(BuiltinId::Concat, 2)});
+  add_string("index_mod on a string", index_mod, abc, 3, [&](const std::string& acc, int i, unsigned long long& c) {
+    const std::string piece(1, "abc"[i % 3]);
+    c += 1 + concat_charge(acc, piece);
+    return acc + piece;
+  }, true);
+  // acc = capitalize(concat(acc, "x")): the concat, then the whole string.
+  const auto capitalize = counted_loop(blank, false, {ins_a(Opcode::Load, 1), ins_a(Opcode::PushConst, 3),
+      call(BuiltinId::Concat, 2), call(BuiltinId::Capitalize, 1)}, {payload::make_string_value("x")});
+  add_string("capitalize", capitalize, Value::invalid(), 0, [&](const std::string& acc, int, unsigned long long& c) {
+    c += concat_charge(acc, "x") + acc.size() + 1;
+    return acc + "x";
+  }, true);
+  // acc = strip(concat(acc, " a ")) and the other five forms: the concat, then
+  // the stripped result.
+  const std::string piece = " a ";
+  for (BuiltinId id : {BuiltinId::Strip, BuiltinId::LStrip, BuiltinId::RStrip, BuiltinId::StripChars,
+                       BuiltinId::LStripChars, BuiltinId::RStripChars}) {
+    const bool with_chars = id == BuiltinId::StripChars || id == BuiltinId::LStripChars || id == BuiltinId::RStripChars;
+    const bool left = id != BuiltinId::RStrip && id != BuiltinId::RStripChars;
+    const bool right = id != BuiltinId::LStrip && id != BuiltinId::LStripChars;
+    std::vector<Instr> body{ins_a(Opcode::Load, 1), ins_a(Opcode::PushConst, 3), call(BuiltinId::Concat, 2)};
+    if (with_chars) body.push_back(ins_a(Opcode::PushConst, 4));
+    body.push_back(call(id, with_chars ? 2 : 1));
+    const auto strip = counted_loop(blank, false, body,
+        {payload::make_string_value(piece), payload::make_string_value(" ")});
+    add_string(builtin_name(id), strip, Value::invalid(), 0, [&, left, right](const std::string& acc, int,
+                                                                            unsigned long long& c) {
+      const std::string joined = acc + piece;
+      std::size_t begin = 0, end = joined.size();
+      if (left) while (begin < end && joined[begin] == ' ') ++begin;
+      if (right) while (end > begin && joined[end - 1] == ' ') --end;
+      c += concat_charge(acc, piece) + (end - begin);
+      return joined.substr(begin, end - begin);
+    }, false);
+  }
   for (const auto& s : scenarios)
     if (!run_charge_scenario(s)) return false;
 

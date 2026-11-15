@@ -277,10 +277,13 @@ results:
 | `range(a, b)` | `b - a` (nothing when empty) |
 | `char_to_string` | 1 |
 | `to_string` | length of the decimal text |
+| `index_mod` on a string | 1 (nothing when empty) |
+| `strip`, `lstrip`, `rstrip`, `strip_chars`, `lstrip_chars`, `rstrip_chars` | length of the result |
+| `capitalize` | length of the string |
 
 A `concat` with an empty operand returns the other operand without allocation,
-and `slice` consumes nothing, for lists and strings alike. An operation whose operand has no readable
-payload builds an opaque token and consumes nothing. The next allocation that
+and `slice` consumes nothing, for lists and strings alike. An operation whose
+operand has no readable payload builds an opaque token and consumes nothing. The next allocation that
 exceeds the limit is a Value error with the ordinary error penalty. A GPU
 result marks physical payload exhaustion separately for bounded replay without
 treating a logical limit error as recoverable. This policy does not change fuel

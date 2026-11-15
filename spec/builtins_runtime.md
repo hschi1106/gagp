@@ -239,7 +239,7 @@ not the multiple instructions charged by an authored conditional/clamp macro.
 These builtins return a new value and never mutate their arguments. Each
 charges one ordinary builtin operation of fuel. A resident result counts toward
 the logical allocation limit by its length (`insert`, `remove_at`, `set_at`,
-`range`), as listed in [fitness.md](./fitness.md). Argument types are checked
+`range`, and `index_mod` on a string), as listed in [fitness.md](./fitness.md). Argument types are checked
 before any value: a non-list first argument, a non-`Int` index or bound, or an
 element that is not the list's element type is a `TypeError`.
 

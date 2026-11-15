@@ -748,6 +748,7 @@ BuiltinResult builtin_call(BuiltinId id, const Value* args, std::size_t argc) {
       if (payload::lookup_string(x, &text)) {
         if (text.empty()) return exact_string("");
         const long long j = vm_semantics::py_int_mod(index.i, static_cast<long long>(text.size()));
+        payload::charge_list_allocation(1);
         return exact_string(std::string(1, text[static_cast<std::size_t>(j)]));
       }
       const long long n = static_cast<long long>(Value::container_len(x));
@@ -820,6 +821,7 @@ BuiltinResult builtin_call(BuiltinId id, const Value* args, std::size_t argc) {
     std::size_t end = text.size();
     if (left) while (begin < end && strippable(text[begin])) ++begin;
     if (right) while (end > begin && strippable(text[end - 1])) --end;
+    payload::charge_list_allocation(end - begin);
     return exact_string(text.substr(begin, end - begin));
   }
 
@@ -850,6 +852,7 @@ BuiltinResult builtin_call(BuiltinId id, const Value* args, std::size_t argc) {
     }
     std::string text;
     if (!payload::lookup_string(args[0], &text)) return derived_string_token(id, args[0], 0);
+    payload::charge_list_allocation(text.size());
     for (std::size_t i = 0; i < text.size(); ++i) {
       const long long c = static_cast<unsigned char>(text[i]);
       text[i] = static_cast<char>(i == 0 ? ascii_to_upper(c) : ascii_to_lower(c));

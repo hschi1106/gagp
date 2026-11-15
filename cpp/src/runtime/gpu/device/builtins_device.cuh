@@ -1929,6 +1929,7 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
         if (d_lookup_string_payload(tables, payload_state, x, xp, xl)) {
           if (xl == 0) return d_emit_string<Flavor>(payload_state, nullptr, 0, false, out, err);
           const int exact_j = static_cast<int>(d_mod_positive(index, xl));
+          if (!d_charge_list_allocation(payload_state, 1U)) { err = ErrCode::Value; return false; }
           return d_emit_string<Flavor>(payload_state, xp + exact_j, 1, false, out, err);
         }
       }
@@ -2028,6 +2029,7 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
         };
         if (left) while (begin < end && strippable(sp[begin])) ++begin;
         if (right) while (end > begin && strippable(sp[end - 1])) --end;
+        if (!d_charge_list_allocation(st, static_cast<unsigned>(end - begin))) { err = ErrCode::Value; return false; }
         return d_emit_string<Flavor>(st, sp + begin, end - begin, false, out, err);
       }
     }
@@ -2071,6 +2073,7 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
       const char* sp = nullptr;
       int sl = 0;
       if (d_lookup_string_payload(tables, st, args[0], sp, sl)) {
+        if (!d_charge_list_allocation(st, static_cast<unsigned>(sl))) { err = ErrCode::Value; return false; }
         return d_emit_string<Flavor>(st, sp, sl, true, out, err);
       }
     }

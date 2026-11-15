@@ -141,8 +141,9 @@ On the GPU, builtins that produce payload values (list edits, `range`, the
 `strip` family, `capitalize`, `index_mod`) select the extended
 payload path, write into the per-lane arena (a physical overflow replays the
 program in `ArenaMixed`) and are not in the typed-view or private IntList
-whitelists, so a population that uses one runs in the generic profile. `range`
-also charges the logical list allocation limit.
+whitelists, so a population that uses one runs in the generic profile. Every resident
+list or string they build is charged against the logical allocation limit
+(`spec/fitness.md`).
 
 Contents can be unavailable when a token was built directly
 (`Value::from_int_list_hash_len` and similar) without `payload::make_*`, after
