@@ -491,20 +491,26 @@ __device__ inline bool d_lookup_string_payload(const DPayloadTables& tables,
                                                const char*& ptr,
                                                int& len) {
   if (v.tag != ValueTag::String) return false;
+  // Every entry's packed hash and length are computed from its own bytes, so
+  // all entries matching v hold the same string and the search order cannot
+  // change a result. The sorted external table is searched first, then local
+  // entries newest first: a loop that keeps deriving strings from constants
+  // and recent results finds each operand in O(log n) or a few steps instead
+  // of scanning every string it has made.
+  const int idx = d_find_string_payload_entry(tables, v.i);
+  if (idx >= 0) {
+    ptr = tables.string_bytes + tables.string_entries[idx].offset;
+    len = tables.string_entries[idx].len;
+    return true;
+  }
   if constexpr (State::kMaxStringEntries > 0) {
-    for (int i = 0; i < st.string_entry_count; ++i) {
+    for (int i = st.string_entry_count; i-- > 0;) {
       if (st.string_entries[i].packed == v.i) {
         ptr = st.string_bytes + st.string_entries[i].offset;
         len = st.string_entries[i].len;
         return true;
       }
     }
-  }
-  const int idx = d_find_string_payload_entry(tables, v.i);
-  if (idx >= 0) {
-    ptr = tables.string_bytes + tables.string_entries[idx].offset;
-    len = tables.string_entries[idx].len;
-    return true;
   }
   return false;
 }
