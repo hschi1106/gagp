@@ -37,7 +37,7 @@ Paths are nonempty strings relative to the directory of the task file.
 | `case_cap` | no | Positive; the largest error one case can add and the error of a failed case (default 1000) |
 | `proximity` | no | `capped` (default) or `discounted` |
 | `summaries` | `tuple_summary` only | `{"count": 1 or 2, "weight": w, "cap": c}`; `weight` (default 0.1) and `cap` (default 100) are positive |
-| `list_allocation_limit` | no | Positive integer at most 2^30: list cells one case may allocate beyond its inputs (default: no limit) |
+| `list_allocation_limit` | no | Positive integer at most 2^30: list cells and string bytes one case may allocate beyond its inputs ([fitness.md](fitness.md), default: no limit) |
 
 `summaries` is required with `tuple_summary` and rejected with any other
 metric.

@@ -1130,6 +1130,15 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
     const Value& a = args[0];
     const Value& b = args[1];
     if (a.tag == ValueTag::String && b.tag == ValueTag::String) {
+      if (payload_state.logical_list_limit) {
+        int al = 0, bl = 0;
+        if (d_exact_payload_length(tables, payload_state, a, al) &&
+            d_exact_payload_length(tables, payload_state, b, bl)) {
+          if (!al) { out = b; return true; }
+          if (!bl) { out = a; return true; }
+          if (!d_charge_list_allocation(payload_state, static_cast<unsigned>(al + bl))) { err = ErrCode::Value; return false; }
+        }
+      }
       if constexpr (PayloadTraits::kHasString) {
         auto& st = payload_state;
         const char* ap = nullptr;
@@ -1480,6 +1489,7 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
     }
     const Value& x = args[0];
     if (x.tag == ValueTag::String) {
+      if (!d_charge_derived_allocation(tables, payload_state, x, 0)) { err = ErrCode::Value; return false; }
       if constexpr (PayloadTraits::kHasString) {
         auto& st = payload_state;
         const char* xp = nullptr;
@@ -1590,6 +1600,7 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
       err = (argc == 1 && args[0].tag == ValueTag::Char) ? ErrCode::Value : ErrCode::Type;
       return false;
     }
+    if (!d_charge_list_allocation(payload_state, 1)) { err = ErrCode::Value; return false; }
     if constexpr (PayloadTraits::kHasString) {
       auto& st = payload_state;
       if (st.string_bytes_used + 1 <= st.kMaxStringBytes) {
@@ -1677,6 +1688,7 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
     const int len = args[0].tag == ValueTag::Int
                         ? d_append_int_decimal(tmp, args[0].i)
                         : d_append_float_decimal(tmp, args[0].f);
+    if (!d_charge_list_allocation(payload_state, static_cast<unsigned>(len))) { err = ErrCode::Value; return false; }
     if constexpr (PayloadTraits::kHasString) {
       auto& st = payload_state;
       if (st.string_bytes_used + len <= st.kMaxStringBytes) {
@@ -1707,6 +1719,7 @@ __device__ inline bool d_builtin_call(BuiltinId bid,
         err = ErrCode::Value;
         return false;
       }
+      if (!d_charge_list_allocation(payload_state, 1)) { err = ErrCode::Value; return false; }
       if constexpr (PayloadTraits::kHasString) {
         auto& st = payload_state;
         if (st.string_bytes_used + 1 <= st.kMaxStringBytes) {

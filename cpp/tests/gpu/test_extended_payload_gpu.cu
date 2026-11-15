@@ -1431,7 +1431,7 @@ bool test_allocation_charge_parity() {
   // Small populations start at the replay capacity, max(16384, limit) cells,
   // so a charged loop under the limit never replays. Every limited scenario
   // still crosses the 8192-cell per-lane arena or stays inside it as named,
-  // and the unlimited variants replay where they outgrow 16384 cells.
+  // and the unlimited variants replay where they outgrow 16384 cells or bytes.
   // append and prepend charge len(xs)+1, so n steps charge n(n+1)/2.
   const auto append = counted_loop(empty, false, {ins_a(Opcode::Load, 1), ins_a(Opcode::Load, 2), call(BuiltinId::Append, 2)});
   const auto prepend = counted_loop(empty, false, {ins_a(Opcode::Load, 1), ins_a(Opcode::Load, 2), call(BuiltinId::Prepend, 2)});
@@ -1444,6 +1444,46 @@ bool test_allocation_charge_parity() {
   add({"reverse in arena", reverse, ints(50), around100, {50, 50, 50, 50}, two_over, 50 + 50 * 100, false}, true);
   add({"reverse beyond the lane arena", reverse, ints(500), {129, 130, 131, 1000}, {500, 500, 500, 500},
        two_over, 500 + 500 * 130, false}, true);
+  // s = concat(s, s) from a 2-byte input: n steps charge 2^(n+2)-2 bytes.
+  const auto doubling = counted_loop(empty, true, {ins_a(Opcode::Load, 1), ins_a(Opcode::Load, 1), call(BuiltinId::Concat, 2)});
+  const auto ab = payload::make_string_value("ab");
+  // Unlimited doubling past the arena is physical exhaustion, so these run
+  // only under the limit. The unlimited case below stays addressable.
+  scenarios.push_back({"string doubling in arena", doubling, ab, {9, 10, 11, 40}, {1024, 2048, 4096, 0},
+                       two_over, (1u << 12) - 2, false});
+  scenarios.push_back({"string doubling beyond the lane arena", doubling, ab, {13, 14, 15, 40},
+                       {16384, 32768, 65536, 0}, two_over, 65536, false});
+  scenarios.push_back({"string doubling unlimited", doubling, ab, {9, 10, 11, 13}, {1024, 2048, 4096, 16384},
+                       none_over, 0, true});
+  // s = concat(s, f(x)) charges the new string and then the concatenation.
+  // The first concatenation has an empty operand and is free.
+  const auto string_steps = [](const std::vector<int>& widths) {
+    unsigned long long charged = 0, length = 0;
+    for (int width : widths) {
+      charged += width + (length ? length + width : 0);
+      length += width;
+    }
+    return std::pair<unsigned long long, unsigned long long>{charged, length};
+  };
+  const auto blank = payload::make_string_value("");
+  for (BuiltinId id : {BuiltinId::CharToString, BuiltinId::Singleton}) {
+    const auto chars = counted_loop(blank, false, {ins_a(Opcode::Load, 1), ins_a(Opcode::PushConst, 3), call(id, 1),
+        call(BuiltinId::Concat, 2)}, {Value::from_char('a')});
+    const auto limit = static_cast<unsigned>(string_steps(std::vector<int>(100, 1)).first);
+    add({std::string(builtin_name(id)) + " in arena", chars, Value::invalid(), around100, {99, 100, 101, 1000},
+         two_over, limit, false}, true);
+  }
+  const auto digits = [&](int n) {
+    std::vector<int> widths;
+    for (int i = 0; i < n; ++i) widths.push_back(static_cast<int>(std::to_string(i).size()));
+    return string_steps(widths);
+  };
+  const auto numbers = counted_loop(blank, false, {ins_a(Opcode::Load, 1), ins_a(Opcode::Load, 2),
+      call(BuiltinId::ToString, 1), call(BuiltinId::Concat, 2)});
+  add({"to_string in arena", numbers, Value::invalid(), {39, 40, 41, 1000},
+       {static_cast<long long>(digits(39).second), static_cast<long long>(digits(40).second),
+        static_cast<long long>(digits(41).second), static_cast<long long>(digits(1000).second)},
+       two_over, static_cast<unsigned>(digits(40).first), false}, true);
   for (const auto& s : scenarios)
     if (!run_charge_scenario(s)) return false;
 

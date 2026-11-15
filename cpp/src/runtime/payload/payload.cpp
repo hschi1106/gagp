@@ -227,7 +227,7 @@ std::size_t charged_input_cells(const std::vector<std::pair<int, Value>>& inputs
     for (std::size_t j = i + 1; j < inputs.size() && !shadowed; ++j) shadowed = inputs[j].first == input.first;
     const ValueTag tag = input.second.tag;
     if (!shadowed && (tag == ValueTag::IntList || tag == ValueTag::FloatList ||
-        tag == ValueTag::StringList))
+        tag == ValueTag::StringList || tag == ValueTag::String))
       cells += Value::container_len(input.second);
   }
   return cells;

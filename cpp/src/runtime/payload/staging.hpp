@@ -29,8 +29,9 @@ class ListAllocationExceeded : public std::runtime_error {
 // above what a case under a logical limit reaches without long free slices.
 constexpr std::size_t kCpuCasePayloadBytes = std::size_t{1} << 30;
 
-// Invocation-local logical list budget, independent of physical payload storage.
-// Input cells are charged once by the caller. Slices and empty concat are free.
+// Invocation-local logical budget of list cells and string bytes, independent
+// of physical payload storage. Input cells and bytes are charged once by the
+// caller. Slices and concatenation with an empty operand are free.
 class ListAllocationScope {
  public:
   ListAllocationScope(std::size_t limit, std::size_t initial_cells);
@@ -42,7 +43,7 @@ class ListAllocationScope {
 };
 // Cells and bytes of the inputs a case binds, charged when its scope opens.
 // Matches the VM loader: out-of-range slots are ignored and the last binding of
-// a slot wins. Typed lists count elements.
+// a slot wins. Typed lists count elements, strings count bytes.
 std::size_t charged_input_cells(const std::vector<std::pair<int, Value>>& inputs, int n_locals);
 bool list_allocation_budget_active();
 void charge_list_allocation(std::size_t cells);

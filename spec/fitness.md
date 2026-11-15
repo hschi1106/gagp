@@ -256,19 +256,23 @@ proof excludes floating-point outputs; expected values must be Int or Bool.
 Errors count with the same policy ceiling. Nonintegral error ceilings, discounted absolute proximity, and tuple-summary
 scores retain the original reduction order. Exact scoring always has ceiling one. This changes scheduling only, not case coverage, scores, or wrong counts.
 `FitnessPolicy::list_allocation_limit` optionally supplies a logical
-list-cell limit (zero means no logical limit). Each case starts with the sum
-of its effective typed-list input lengths: only slots in
+allocation limit that counts list cells and string bytes together (zero means
+no logical limit). Each case starts with the sum of its effective typed-list
+input lengths and string input byte lengths: only slots in
 `[0, program.n_locals)` count, and duplicate bindings use the last value, as in
 the VM local loader. A binding outside this range is ignored even when it names
-a list. Every builtin that creates a list charges the length of its result, on every execution and including repeated identical
+a list or a string. Every builtin that creates a list or a string charges the
+length of its result, on every execution and including repeated identical
 results:
 
 | Builtin | Charge |
 | --- | --- |
-| `singleton` | 1 |
-| `concat` of two nonempty lists | the combined length |
+| `singleton` | 1 (a list of one element, or a string of one `Char`) |
+| `concat` of two nonempty lists or strings | the combined length |
 | `append`, `prepend` | length of the list plus one |
-| `reverse` | length of the list |
+| `reverse` | length of the list or string |
+| `char_to_string` | 1 |
+| `to_string` | length of the decimal text |
 
 A `concat` with an empty operand returns the other operand without allocation,
 and `slice` consumes nothing. An operation whose operand has no readable

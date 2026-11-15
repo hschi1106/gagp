@@ -242,6 +242,11 @@ BuiltinResult builtin_call(BuiltinId id, const Value* args, std::size_t argc) {
       std::string sa;
       std::string sb;
       if (payload::lookup_string(a, &sa) && payload::lookup_string(b, &sb)) {
+        if (payload::list_allocation_budget_active()) {
+          if (sa.empty()) return BuiltinResult{false, b, Err{ErrCode::Value, ""}};
+          if (sb.empty()) return BuiltinResult{false, a, Err{ErrCode::Value, ""}};
+          payload::charge_list_allocation(sa.size() + sb.size());
+        }
         payload::check_allocation_budget(sa.size() + sb.size());
         return BuiltinResult{false, payload::make_string_value(sa + sb), Err{ErrCode::Value, ""}};
       }
@@ -446,6 +451,7 @@ BuiltinResult builtin_call(BuiltinId id, const Value* args, std::size_t argc) {
     if (x.tag == ValueTag::String) {
       std::string sx;
       if (payload::lookup_string(x, &sx)) {
+        payload::charge_list_allocation(sx.size());
         std::reverse(sx.begin(), sx.end());
         return BuiltinResult{false, payload::make_string_value(sx), Err{ErrCode::Value, ""}};
       }
@@ -510,6 +516,7 @@ BuiltinResult builtin_call(BuiltinId id, const Value* args, std::size_t argc) {
     if (c < 0 || c > 255) {
       return fail(ErrCode::Value, "char_to_string supports byte-sized char in CPU slice");
     }
+    payload::charge_list_allocation(1);
     return BuiltinResult{false, payload::make_string_value(std::string(1, static_cast<char>(c))), Err{ErrCode::Value, ""}};
   }
 
@@ -565,10 +572,10 @@ BuiltinResult builtin_call(BuiltinId id, const Value* args, std::size_t argc) {
     if (argc != 1 || !is_numeric(args[0])) {
       return fail(ErrCode::Type, "to_string expects int or float");
     }
-    if (args[0].tag == ValueTag::Int) {
-      return BuiltinResult{false, payload::make_string_value(std::to_string(args[0].i)), Err{ErrCode::Value, ""}};
-    }
-    return BuiltinResult{false, payload::make_string_value(format_float_current(args[0].f)), Err{ErrCode::Value, ""}};
+    const std::string text = args[0].tag == ValueTag::Int ? std::to_string(args[0].i)
+                                                          : format_float_current(args[0].f);
+    payload::charge_list_allocation(text.size());
+    return BuiltinResult{false, payload::make_string_value(text), Err{ErrCode::Value, ""}};
   }
 
   if (id == BuiltinId::Singleton) {
@@ -580,6 +587,7 @@ BuiltinResult builtin_call(BuiltinId id, const Value* args, std::size_t argc) {
       if (x.i < 0 || x.i > 255) {
         return fail(ErrCode::Value, "singleton supports byte-sized char in CPU slice");
       }
+      payload::charge_list_allocation(1);
       return BuiltinResult{false, payload::make_string_value(std::string(1, static_cast<char>(x.i))), Err{ErrCode::Value, ""}};
     }
     if (x.tag == ValueTag::Int || x.tag == ValueTag::Float || x.tag == ValueTag::String)
