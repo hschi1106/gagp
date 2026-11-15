@@ -103,6 +103,9 @@ class FitnessSessionGpu {
                                 int blocksize = 1024,
                                 double penalty = 1.0, FitnessPolicy policy = {});
   FitnessEvalResult eval_programs(const std::vector<BytecodeProgram>& programs, bool capture_case_counts = false) const;
+  // Makes the device chosen by a successful init current on the calling thread
+  // (CUDA keeps the current device per thread and init may run on another one).
+  bool use_device() const;
 
  private:
   friend class evo::repro::NativePhasePopulation;

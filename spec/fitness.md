@@ -177,11 +177,14 @@ A run's best program is *train perfect* when it makes no training error and
 
 ### CPU payload allocation boundary
 
-CPU fitness evaluation permits at most 8 MiB of cumulative generated payload
-data and registry keys per case. Exceeding this limit is a runtime Value error
-and receives the ordinary error penalty. Temporary payloads are released after
-that case is scored. This resource bound is independent of instruction fuel;
-backend-specific resource limits need not be equal.
+Physical payload storage is never part of a score. CPU fitness evaluation
+gives each case an overlay of 1 GiB of cumulative generated payload data and
+registry keys, released after the case is scored. Exhausting it stops the
+evaluation with an error that asks for a lower `list_allocation_limit`, as GPU
+evaluation stops when replay cannot supply the physical capacity. The two
+engines therefore publish identical scores or the run stops. Tasks that need a
+bound on generated data set `list_allocation_limit`, which is a semantic limit
+and a scored case error on both engines.
 ## Opt-in task metrics and elitism
 
 `FitnessPolicy` defaults to `Legacy`, preserving the scores above. Native CPU
@@ -252,21 +255,39 @@ case score is integral and the bounded total is below 2^40. The view type-flow
 proof excludes floating-point outputs; expected values must be Int or Bool.
 Errors count with the same policy ceiling. Nonintegral error ceilings, discounted absolute proximity, and tuple-summary
 scores retain the original reduction order. Exact scoring always has ceiling one. This changes scheduling only, not case coverage, scores, or wrong counts.
-`FitnessPolicy::list_allocation_limit` optionally supplies a logical list-cell
-arena limit (zero leaves the existing backend policy unchanged). Each case starts
-with the sum of its effective typed-list input lengths: only slots in
+`FitnessPolicy::list_allocation_limit` optionally supplies a logical
+allocation limit that counts list cells and string bytes together (zero means
+no logical limit). Each case starts with the sum of its effective typed-list
+input lengths and string input byte lengths: only slots in
 `[0, program.n_locals)` count, and duplicate bindings use the last value, as in
 the VM local loader. A binding outside this range is ignored even when it names
-a list. `Singleton` consumes one cell; `range(a, b)` consumes `b - a` cells
-(none when empty);
-`Concat` of two nonempty lists consumes their combined length on every execution,
-including repeated identical results. An empty-list concat returns the other
-operand without allocation, and slicing consumes no logical cells. The next
-allocation that exceeds the limit produces the ordinary error penalty. Physical
-storage exhaustion remains a separate backend constraint; a GPU result marks
-physical payload exhaustion separately for bounded replay without treating a
-logical limit error as recoverable. This policy does not change fuel or frame
-limits. The `benchmarks/asgp30` list-output tasks set a limit of 65536 cells
+a list or a string. Every builtin that creates a list or a string charges the
+length of its result, on every execution and including repeated identical
+results:
+
+| Builtin | Charge |
+| --- | --- |
+| `singleton` | 1 (a list of one element, or a string of one `Char`) |
+| `concat` of two nonempty lists or strings | the combined length |
+| `append`, `prepend` | length of the list plus one |
+| `reverse` | length of the list or string |
+| `insert` | length of the list plus one |
+| `set_at` | length of the list (nothing when empty) |
+| `remove_at` | length of the list minus one (nothing when empty) |
+| `range(a, b)` | `b - a` (nothing when empty) |
+| `char_to_string` | 1 |
+| `to_string` | length of the decimal text |
+| `index_mod` on a string | 1 (nothing when empty) |
+| `strip`, `lstrip`, `rstrip`, `strip_chars`, `lstrip_chars`, `rstrip_chars` | length of the result |
+| `capitalize` | length of the string |
+
+A `concat` with an empty operand returns the other operand without allocation,
+and `slice` consumes nothing, for lists and strings alike. An operation whose
+operand has no readable payload builds an opaque token and consumes nothing. The next allocation that
+exceeds the limit is a Value error with the ordinary error penalty. A GPU
+result marks physical payload exhaustion separately for bounded replay without
+treating a logical limit error as recoverable. This policy does not change fuel
+or frame limits. The `benchmarks/asgp30` list-output tasks set a limit of 65536 cells
 through the task's `list_allocation_limit`; source character lists use native
 IntList cells too.
 

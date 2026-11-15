@@ -592,6 +592,10 @@ std::uint64_t FitnessSessionGpu::evaluation_revision() const {
   return impl_ && impl_->ready?impl_->evaluation_revision:0;
 }
 
+bool FitnessSessionGpu::use_device() const {
+  return impl_ && impl_->device_id >= 0 && cudaSetDevice(impl_->device_id) == cudaSuccess;
+}
+
 bool FitnessSessionGpu::release_private_workspace() const {
   return impl_ && !impl_->private_workspace.busy && impl_->private_workspace.clear();
 }

@@ -218,11 +218,25 @@ ListAllocationScope::ListAllocationScope(std::size_t limit, std::size_t initial_
 ListAllocationScope::~ListAllocationScope() {
   list_limit = previous_limit_; list_used = previous_used_;
 }
+std::size_t charged_input_cells(const std::vector<std::pair<int, Value>>& inputs, int n_locals) {
+  std::size_t cells = 0;
+  for (std::size_t i = 0; i < inputs.size(); ++i) {
+    const auto& input = inputs[i];
+    if (input.first < 0 || input.first >= n_locals) continue;
+    bool shadowed = false;
+    for (std::size_t j = i + 1; j < inputs.size() && !shadowed; ++j) shadowed = inputs[j].first == input.first;
+    const ValueTag tag = input.second.tag;
+    if (!shadowed && (tag == ValueTag::IntList || tag == ValueTag::FloatList ||
+        tag == ValueTag::StringList || tag == ValueTag::String))
+      cells += Value::container_len(input.second);
+  }
+  return cells;
+}
 bool list_allocation_budget_active() { return list_limit != 0; }
 void charge_list_allocation(std::size_t cells) {
   if (!list_limit || cells == 0) return;
   if (list_used > list_limit || cells > list_limit - list_used)
-    throw PayloadBudgetExceeded("logical list-cell allocation budget exceeded");
+    throw ListAllocationExceeded();
   list_used += cells;
 }
 

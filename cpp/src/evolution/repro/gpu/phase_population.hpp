@@ -1,6 +1,7 @@
 #pragma once
 #include <memory>
 #include <array>
+#include <functional>
 #include <optional>
 #include <vector>
 #include "gagp/evolution/genome.hpp"
@@ -14,10 +15,14 @@ namespace gagp::evo::repro {
 // CPU code only transports/exports artifacts. Selection and variation run on GPU.
 class NativePhasePopulation final {
  public:
+  // Construction admits every member on the host before its first CUDA call;
+  // `await_device`, when set, runs right before that call (a caller may still
+  // be creating the CUDA context of its evaluation session on another thread).
   NativePhasePopulation(std::shared_ptr<const grammar::CompiledGrammar> grammar,
       const std::vector<ProgramGenome>& input, const std::vector<std::string>& input_names,
       int site_depth=0,
-      const PhaseVariationPolicy& policy=PhaseVariationPolicy{});
+      const PhaseVariationPolicy& policy=PhaseVariationPolicy{},
+      const std::function<void()>& await_device={});
   ~NativePhasePopulation();
   NativePhasePopulation(const NativePhasePopulation&) = delete;
   NativePhasePopulation& operator=(const NativePhasePopulation&) = delete;

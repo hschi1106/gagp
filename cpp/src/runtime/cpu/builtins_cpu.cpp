@@ -282,6 +282,11 @@ BuiltinResult builtin_call(BuiltinId id, const Value* args, std::size_t argc) {
       std::string sa;
       std::string sb;
       if (payload::lookup_string(a, &sa) && payload::lookup_string(b, &sb)) {
+        if (payload::list_allocation_budget_active()) {
+          if (sa.empty()) return BuiltinResult{false, b, Err{ErrCode::Value, ""}};
+          if (sb.empty()) return BuiltinResult{false, a, Err{ErrCode::Value, ""}};
+          payload::charge_list_allocation(sa.size() + sb.size());
+        }
         payload::check_allocation_budget(sa.size() + sb.size());
         return BuiltinResult{false, payload::make_string_value(sa + sb), Err{ErrCode::Value, ""}};
       }
@@ -436,6 +441,7 @@ BuiltinResult builtin_call(BuiltinId id, const Value* args, std::size_t argc) {
     }
     std::vector<Value> lx;
     if (payload::lookup_list(xs, &lx)) {
+      payload::charge_list_allocation(lx.size() + 1);
       lx.push_back(elem);
       return make_exact_list(xs.tag, std::move(lx));
     }
@@ -466,6 +472,7 @@ BuiltinResult builtin_call(BuiltinId id, const Value* args, std::size_t argc) {
     }
     std::vector<Value> lx;
     if (payload::lookup_list(xs, &lx)) {
+      payload::charge_list_allocation(lx.size() + 1);
       lx.insert(lx.begin(), elem);
       return make_exact_list(xs.tag, std::move(lx));
     }
@@ -484,6 +491,7 @@ BuiltinResult builtin_call(BuiltinId id, const Value* args, std::size_t argc) {
     if (x.tag == ValueTag::String) {
       std::string sx;
       if (payload::lookup_string(x, &sx)) {
+        payload::charge_list_allocation(sx.size());
         std::reverse(sx.begin(), sx.end());
         return BuiltinResult{false, payload::make_string_value(sx), Err{ErrCode::Value, ""}};
       }
@@ -497,6 +505,7 @@ BuiltinResult builtin_call(BuiltinId id, const Value* args, std::size_t argc) {
     }
     std::vector<Value> lx;
     if (payload::lookup_list(x, &lx)) {
+      payload::charge_list_allocation(lx.size());
       std::reverse(lx.begin(), lx.end());
       return make_exact_list(x.tag, std::move(lx));
     }
@@ -562,6 +571,7 @@ BuiltinResult builtin_call(BuiltinId id, const Value* args, std::size_t argc) {
     if (c < 0 || c > 255) {
       return fail(ErrCode::Value, "char_to_string supports byte-sized char in CPU slice");
     }
+    payload::charge_list_allocation(1);
     return BuiltinResult{false, payload::make_string_value(std::string(1, static_cast<char>(c))), Err{ErrCode::Value, ""}};
   }
 
@@ -617,10 +627,10 @@ BuiltinResult builtin_call(BuiltinId id, const Value* args, std::size_t argc) {
     if (argc != 1 || !is_numeric(args[0])) {
       return fail(ErrCode::Type, "to_string expects int or float");
     }
-    if (args[0].tag == ValueTag::Int) {
-      return BuiltinResult{false, payload::make_string_value(std::to_string(args[0].i)), Err{ErrCode::Value, ""}};
-    }
-    return BuiltinResult{false, payload::make_string_value(format_float_current(args[0].f)), Err{ErrCode::Value, ""}};
+    const std::string text = args[0].tag == ValueTag::Int ? std::to_string(args[0].i)
+                                                          : format_float_current(args[0].f);
+    payload::charge_list_allocation(text.size());
+    return BuiltinResult{false, payload::make_string_value(text), Err{ErrCode::Value, ""}};
   }
 
   if (id == BuiltinId::Singleton) {
@@ -632,6 +642,7 @@ BuiltinResult builtin_call(BuiltinId id, const Value* args, std::size_t argc) {
       if (x.i < 0 || x.i > 255) {
         return fail(ErrCode::Value, "singleton supports byte-sized char in CPU slice");
       }
+      payload::charge_list_allocation(1);
       return BuiltinResult{false, payload::make_string_value(std::string(1, static_cast<char>(x.i))), Err{ErrCode::Value, ""}};
     }
     if (x.tag == ValueTag::Int || x.tag == ValueTag::Float || x.tag == ValueTag::String)
@@ -669,9 +680,11 @@ BuiltinResult builtin_call(BuiltinId id, const Value* args, std::size_t argc) {
     if (payload::lookup_list(xs, &lx)) {
       const long long n = static_cast<long long>(lx.size());
       if (id == BuiltinId::Insert) {
+        payload::charge_list_allocation(lx.size() + 1);
         lx.insert(lx.begin() + insert_position(index.i, n), elem);
       } else {
         if (n == 0) return BuiltinResult{false, xs, Err{ErrCode::Value, ""}};
+        payload::charge_list_allocation(lx.size());
         lx[static_cast<std::size_t>(vm_semantics::py_int_mod(index.i, n))] = elem;
       }
       return make_exact_list(xs.tag, std::move(lx));
@@ -700,6 +713,7 @@ BuiltinResult builtin_call(BuiltinId id, const Value* args, std::size_t argc) {
     std::vector<Value> lx;
     if (payload::lookup_list(xs, &lx)) {
       if (lx.empty()) return BuiltinResult{false, xs, Err{ErrCode::Value, ""}};
+      payload::charge_list_allocation(lx.size() - 1);
       const long long n = static_cast<long long>(lx.size());
       lx.erase(lx.begin() + vm_semantics::py_int_mod(index.i, n));
       return make_exact_list(xs.tag, std::move(lx));
@@ -734,6 +748,7 @@ BuiltinResult builtin_call(BuiltinId id, const Value* args, std::size_t argc) {
       if (payload::lookup_string(x, &text)) {
         if (text.empty()) return exact_string("");
         const long long j = vm_semantics::py_int_mod(index.i, static_cast<long long>(text.size()));
+        payload::charge_list_allocation(1);
         return exact_string(std::string(1, text[static_cast<std::size_t>(j)]));
       }
       const long long n = static_cast<long long>(Value::container_len(x));
@@ -806,6 +821,7 @@ BuiltinResult builtin_call(BuiltinId id, const Value* args, std::size_t argc) {
     std::size_t end = text.size();
     if (left) while (begin < end && strippable(text[begin])) ++begin;
     if (right) while (end > begin && strippable(text[end - 1])) --end;
+    payload::charge_list_allocation(end - begin);
     return exact_string(text.substr(begin, end - begin));
   }
 
@@ -836,6 +852,7 @@ BuiltinResult builtin_call(BuiltinId id, const Value* args, std::size_t argc) {
     }
     std::string text;
     if (!payload::lookup_string(args[0], &text)) return derived_string_token(id, args[0], 0);
+    payload::charge_list_allocation(text.size());
     for (std::size_t i = 0; i < text.size(); ++i) {
       const long long c = static_cast<unsigned char>(text[i]);
       text[i] = static_cast<char>(i == 0 ? ascii_to_upper(c) : ascii_to_lower(c));

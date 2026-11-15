@@ -258,7 +258,7 @@ void test_range() {
     check(!call(BuiltinId::Range, {I(5), I(2)}).is_error, "empty range charged the budget");
     check(!call(BuiltinId::Range, {I(0), I(3)}).is_error, "range below the allocation limit");
     bool exhausted = false;
-    try { (void)call(BuiltinId::Range, {I(0), I(2)}); } catch (const payload::PayloadBudgetExceeded&) { exhausted = true; }
+    try { (void)call(BuiltinId::Range, {I(0), I(2)}); } catch (const payload::ListAllocationExceeded&) { exhausted = true; }
     check(exhausted, "range ignored the logical allocation limit");
   }
   {
@@ -266,15 +266,52 @@ void test_range() {
     payload::StagedPayloads::Scope scope(physical);
     payload::ListAllocationScope logical(4, 0);
     bool exhausted = false;
-    try { (void)call(BuiltinId::Range, {I(0), I(5)}); } catch (const payload::PayloadBudgetExceeded&) { exhausted = true; }
+    try { (void)call(BuiltinId::Range, {I(0), I(5)}); } catch (const payload::ListAllocationExceeded&) { exhausted = true; }
     check(exhausted, "range above the allocation limit succeeded");
     bool huge = false;
     try {
       const auto r = call(BuiltinId::Range, {I(kMin), I(kMax)});
       huge = r.is_error && r.err.code == ErrCode::Value;
-    } catch (const payload::PayloadBudgetExceeded&) { huge = true; }
+    } catch (const payload::ListAllocationExceeded&) { huge = true; }
     check(huge, "huge range under a limit was neither rejected nor an allocation error");
   }
+}
+
+// A call charges `cells`: it succeeds when exactly that many remain under the
+// limit, and exceeds the limit when one fewer remains.
+bool charges(BuiltinId id, const std::vector<Value>& args, std::size_t cells) {
+  constexpr std::size_t kLimit = 100;
+  const auto succeeds_with = [&](std::size_t remaining) {
+    payload::StagedPayloads physical(1U << 20);
+    payload::StagedPayloads::Scope scope(physical);
+    payload::ListAllocationScope logical(kLimit, kLimit - remaining);
+    try {
+      return !call(id, args).is_error;
+    } catch (const payload::ListAllocationExceeded&) {
+      return false;
+    }
+  };
+  return succeeds_with(cells) && (cells == 0 || !succeeds_with(cells - 1));
+}
+
+void test_allocation_charges() {
+  check(charges(BuiltinId::Insert, {IL({1, 2, 3}), I(1), I(9)}, 4), "insert charges len+1");
+  check(charges(BuiltinId::Insert, {IL({}), I(0), I(9)}, 1), "insert into an empty list charges 1");
+  check(charges(BuiltinId::SetAt, {IL({1, 2, 3}), I(-1), I(9)}, 3), "set_at charges len");
+  check(charges(BuiltinId::SetAt, {IL({}), I(0), I(9)}, 0), "set_at on an empty list is free");
+  check(charges(BuiltinId::RemoveAt, {SL({"a", "b", "c"}), I(4)}, 2), "remove_at charges len-1");
+  check(charges(BuiltinId::RemoveAt, {IL({7}), I(0)}, 0), "remove_at of the last element is free");
+  check(charges(BuiltinId::RemoveAt, {IL({}), I(0)}, 0), "remove_at on an empty list is free");
+  check(charges(BuiltinId::IndexMod, {S("abc"), I(5)}, 1), "index_mod on a string charges one byte");
+  check(charges(BuiltinId::IndexMod, {S(""), I(5)}, 0), "index_mod on an empty string is free");
+  check(charges(BuiltinId::IndexMod, {IL({1, 2}), I(5)}, 0), "index_mod on a list is free");
+  check(charges(BuiltinId::Strip, {S("  ab \t")}, 2), "strip charges its result");
+  check(charges(BuiltinId::RStrip, {S("  ab ")}, 4), "rstrip charges its result");
+  check(charges(BuiltinId::LStripChars, {S("xxabx"), S("x")}, 3), "lstrip_chars charges its result");
+  check(charges(BuiltinId::StripChars, {S("xxx"), S("x")}, 0), "strip_chars to empty is free");
+  check(charges(BuiltinId::Capitalize, {S("hello")}, 5), "capitalize charges the string");
+  check(charges(BuiltinId::Slice, {S("hello"), I(1), I(4)}, 0), "string slice is free");
+  check(charges(BuiltinId::Range, {I(2), I(7)}, 5), "range charges b-a");
 }
 
 void test_strip_family() {
@@ -392,6 +429,7 @@ int main() {
   test_affixes();
   test_capitalize();
   test_fallback_payload();
+  test_allocation_charges();
   if (failures != 0) {
     std::cerr << failures << " check(s) failed\n";
     return 1;
