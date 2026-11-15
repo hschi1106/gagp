@@ -71,7 +71,18 @@ Builtin IDs are:
 28 trunc_div0                 29 trunc_mod0
 30 index_nonnegative
 31 index_clamped_or_zero
+32 insert      33 remove_at      34 set_at      35 index_mod
+36 range       37 strip          38 lstrip      39 rstrip
+40 strip_chars 41 lstrip_chars   42 rstrip_chars
+43 startswith  44 endswith       45 capitalize
 ```
+
+`contains` (ID 11) is selected by argument type: `(String, String)` is the
+substring test and `(IntList|FloatList|StringList, element)` is list
+membership. IDs 32 through 45 are the pure G3P builtins; their contracts are in
+[builtins_runtime.md](./builtins_runtime.md) and
+[builtins_base.md](./builtins_base.md). Each charges one ordinary builtin
+operation of fuel.
 
 `is_int` is compiler-internal and is not source syntax.
 
