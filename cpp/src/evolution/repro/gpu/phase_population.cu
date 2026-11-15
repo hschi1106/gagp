@@ -45,19 +45,26 @@ template<class T> struct Buffer {
  }
  std::size_t bytes()const{return count*sizeof(T);}
 };
+// Host tables of one phase grammar. They need no device, so construction
+// builds them while the evaluation session may still be creating its context.
+struct PreparedProfile {
+ std::vector<PhaseProduction> weights;std::vector<PhaseNonterminal> nonterminals;PhaseChoiceTables tables;
+ explicit PreparedProfile(const HostPhaseGrammar& h):weights(h.productions),nonterminals(h.nonterminals) {
+  normalize_static_phase_weights(h,nonterminals,weights);
+  tables=build_phase_choice_tables(h,nonterminals,weights);
+ }
+};
 struct UploadedProfile {
  Buffer<PhaseExpression> expressions;Buffer<PhaseProduction> productions;Buffer<PhaseNonterminal> nonterminals;
  Buffer<PhaseDomain> domains;Buffer<Value> values;Buffer<unsigned> minimum;
  Buffer<PhaseChoiceHeader> choice_headers;Buffer<unsigned> choice_values;Buffer<PhaseChoiceSet> choice_sets;
  Buffer<std::uint64_t> choice_thresholds;Buffer<int> choice_expressions;bool choice_tables=false;
  Buffer<PhaseRegionInfo> regions;Buffer<PhaseSharedHole> shared;
- explicit UploadedProfile(const HostPhaseGrammar& h) {
+ UploadedProfile(const HostPhaseGrammar& h,const PreparedProfile& prepared) {
   expressions.upload(h.expressions);regions.upload(h.regions);shared.upload(h.shared);
-  auto weights=h.productions;auto nts=h.nonterminals;
-  normalize_static_phase_weights(h,nts,weights);
-  productions.upload(weights);nonterminals.upload(nts);
+  productions.upload(prepared.weights);nonterminals.upload(prepared.nonterminals);
   domains.upload(h.domains);values.upload(h.values);minimum.upload(h.minimum);
-  const auto t=build_phase_choice_tables(h,nts,weights);
+  const auto& t=prepared.tables;
   choice_headers.upload(t.headers);choice_values.upload(t.values);choice_sets.upload(t.sets);
   choice_thresholds.upload(t.thresholds);choice_expressions.upload(t.expressions);choice_tables=!t.headers.empty();
  }
@@ -489,7 +496,7 @@ struct NativePhasePopulation::Impl {
 
 NativePhasePopulation::NativePhasePopulation(std::shared_ptr<const grammar::CompiledGrammar> grammar,
     const std::vector<ProgramGenome>& input,const std::vector<std::string>& input_names,int site_depth,
-    const PhaseVariationPolicy& policy):impl_(std::make_unique<Impl>(std::move(grammar))) {
+    const PhaseVariationPolicy& policy,const std::function<void()>& await_device):impl_(std::make_unique<Impl>(std::move(grammar))) {
  gpu_detail::CudaStageAllocationScope construction_storage(nullptr,false);
  validate_phase_variation_policy(policy);
  impl_->operators.counted_sites=policy.site_draw==PhaseSiteDraw::Counted;
@@ -512,7 +519,9 @@ NativePhasePopulation::NativePhasePopulation(std::shared_ptr<const grammar::Comp
       binding.type==RType::IntList?ValueTag::IntList:ValueTag::Invalid;
   impl_->input_types[index]=type;if(type==ValueTag::Invalid)impl_->views_proven=false;
  }
- int devices=0;if(const auto e=cudaGetDeviceCount(&devices);e!=cudaSuccess)throw std::runtime_error(std::string("cuda runtime initialization failed: ")+cudaGetErrorString(e));checked(cudaGetDevice(&impl_->device));
+ // Host admission first: import, profile tables, bytecode verification and the
+ // packed member form need no device. The first CUDA call follows await_device,
+ // so a caller may create the evaluation context concurrently.
  const auto import_profiles=std::make_unique<NativePhaseGrammarProfiles>(impl_->grammar,input_names);
  const auto* evaluator_inputs=&input_names;
  impl_->population=input.size();
@@ -525,12 +534,9 @@ NativePhasePopulation::NativePhasePopulation(std::shared_ptr<const grammar::Comp
      impl_->operators.counted_sites?"resident-gpu-v2-counted":"resident-gpu-v1";
  impl_->reproduction_profile+=phase_variation_profile_suffix(policy);
  impl_->reproduction_profile+="-elite-linear";
- {
-  phase_layout_require(impl_->population<(1<<29),"parent fitness cache population capacity");
-  impl_->parent_table_size=1;while(impl_->parent_table_size<2*impl_->population)impl_->parent_table_size*=2;
-  impl_->parent_hashes.reserve(impl_->population);impl_->parent_table.reserve(impl_->parent_table_size);
-  impl_->reproduction_profile+="-parent-fitness-cache";
- }
+ phase_layout_require(impl_->population<(1<<29),"parent fitness cache population capacity");
+ impl_->parent_table_size=1;while(impl_->parent_table_size<2*impl_->population)impl_->parent_table_size*=2;
+ impl_->reproduction_profile+="-parent-fitness-cache";
  if(impl_->operators.uniform_phase)impl_->reproduction_profile+="-uniform-phase";
  impl_->reproduction_profile+="-warp-choice";
  const auto capability=gpu_detail::pack_programs_with_shared_case_count({impl_->layout.executable},0,0);
@@ -544,36 +550,9 @@ NativePhasePopulation::NativePhasePopulation(std::shared_ptr<const grammar::Comp
  const std::size_t estimated=(2*rows+mutation_rows+input.size())*tree_bytes+rows*(code_capacity*sizeof(gpu_detail::DInstr)+capacity*sizeof(Value));
  phase_layout_require(estimated<=std::size_t(12)*1024*1024*1024,"resident genotype workspace of "+std::to_string(estimated>>20)+
      " MiB ("+std::to_string(input.size())+" members x "+std::to_string(impl_->slot_count)+" phases) exceeds the capacity of 12288 MiB");
- std::size_t scratch_budget=gpu_detail::kPayloadWorkspaceBytes,free_bytes=0,total_bytes=0;
- gpu_detail::release_cached_device_memory();checked(cudaMemGetInfo(&free_bytes,&total_bytes));
- // Kernel local-memory backing also needs device space. Retire buffers that
- // belong exclusively to the other stage before admitting the full scratch cap.
- constexpr std::size_t launch_headroom=std::size_t(2)*1024*1024*1024;
- impl_->staged_buffers=estimated>=free_bytes || scratch_budget>=free_bytes-estimated ||
-     launch_headroom>=free_bytes-estimated-scratch_budget;
- if(impl_->staged_buffers && scratch_budget) {
-  impl_->stage_storage=std::make_unique<gpu_detail::CudaStageStorage>(scratch_budget);
-  impl_->reproduction_profile+="-stage-storage";
- } else impl_->reproduction_profile+="-stage-storage-declined";
- // Persistent buffers are bounded by population × grammar capacity; no retained
- // ancestral ASTs, intern tables or generation history exist in this owner.
- impl_->current=std::make_unique<Trees>(rows);
- if(!impl_->staged_buffers){impl_->next=std::make_unique<Trees>(mutation_rows);impl_->crossed=std::make_unique<Trees>(rows);impl_->scratch=std::make_unique<Trees>(input.size());}
- std::vector<DeviceSlot> slots;
- for(int k=0;k<impl_->slot_count;++k) {
-  const auto& profile=impl_->layout.profiles[k];const auto& layout=impl_->layout.slots[k];
-  impl_->profiles.push_back(std::make_unique<UploadedProfile>(profile));
-  const auto& nt=impl_->grammar->nonterminals()[layout.nonterminal];DeviceSlot slot{};
-  slot.grammar=impl_->profiles.back()->view(profile);slot.root=profile.root_expression;slot.scope=nt.scope.size();slot.max_depth=layout.max_depth;slot.logical_depth=site_depth;
-  slot.type=impl_->layout.program_terminator || !impl_->layout.whole_program?phase_value_tag(nt.type):kPhaseStatement;
-  if(impl_->layout.whole_program) {
-   slot.local_count=input_names.size();
-   for(int j=0;j<slot.local_count;++j)for(const auto& binding:impl_->grammar->inputs())
-    if(binding.name==input_names[j])slot.locals[j]=phase_value_tag(binding.type);
-  } else {slot.local_count=slot.scope;for(int j=0;j<slot.scope;++j)slot.locals[j]=phase_value_tag(nt.scope[j].type);}
-  slots.push_back(slot);
- }
- impl_->slots.upload(slots);std::vector<PhaseGenerationResult> lengths(rows);
+ std::vector<PreparedProfile> prepared;prepared.reserve(impl_->slot_count);
+ for(int k=0;k<impl_->slot_count;++k)prepared.emplace_back(impl_->layout.profiles[k]);
+ std::vector<PhaseGenerationResult> lengths(rows);
  std::vector<PhaseTreeNode> import_nodes;std::vector<int> import_origins;std::vector<Value> import_constants;
  std::vector<ImportOffset> import_offsets;import_offsets.reserve(rows);
  // Upload live imports only, avoiding full-capacity host staging arrays.
@@ -604,6 +583,49 @@ NativePhasePopulation::NativePhasePopulation(std::shared_ptr<const grammar::Comp
       gpu_detail::private_intlist_program_supported(programs.back(),impl_->input_types);
  }
  impl_->members.count=impl_->population;impl_->members.stack_bounds=impl_->members.fixed_stack_bounds;
+ {
+  // Every program above passed cold GPU bytecode verification with the same
+  // local/stack limits. No reproduction or program mutation has occurred.
+  // Borrow that exact immutable vector and its bounds only for this synchronous
+  // pack; later generations retain the existing checked lowering/refresh path.
+  // Region programs keep a resident packed form with variable phase slots.
+  // Whole-program members are repacked by the session after each lowering.
+  const gpu_detail::OwnedGpuPrograms initial(impl_->members.programs,impl_->members.fixed_stack_bounds);
+  if(!impl_->layout.whole_program)impl_->initialize_host_packed(impl_->members,initial);
+ }
+ if(await_device)await_device();
+ int devices=0;if(const auto e=cudaGetDeviceCount(&devices);e!=cudaSuccess)throw std::runtime_error(std::string("cuda runtime initialization failed: ")+cudaGetErrorString(e));checked(cudaGetDevice(&impl_->device));
+ impl_->parent_hashes.reserve(impl_->population);impl_->parent_table.reserve(impl_->parent_table_size);
+ std::size_t scratch_budget=gpu_detail::kPayloadWorkspaceBytes,free_bytes=0,total_bytes=0;
+ gpu_detail::release_cached_device_memory();checked(cudaMemGetInfo(&free_bytes,&total_bytes));
+ // Kernel local-memory backing also needs device space. Retire buffers that
+ // belong exclusively to the other stage before admitting the full scratch cap.
+ constexpr std::size_t launch_headroom=std::size_t(2)*1024*1024*1024;
+ impl_->staged_buffers=estimated>=free_bytes || scratch_budget>=free_bytes-estimated ||
+     launch_headroom>=free_bytes-estimated-scratch_budget;
+ if(impl_->staged_buffers && scratch_budget) {
+  impl_->stage_storage=std::make_unique<gpu_detail::CudaStageStorage>(scratch_budget);
+  impl_->reproduction_profile+="-stage-storage";
+ } else impl_->reproduction_profile+="-stage-storage-declined";
+ // Persistent buffers are bounded by population × grammar capacity; no retained
+ // ancestral ASTs, intern tables or generation history exist in this owner.
+ impl_->current=std::make_unique<Trees>(rows);
+ if(!impl_->staged_buffers){impl_->next=std::make_unique<Trees>(mutation_rows);impl_->crossed=std::make_unique<Trees>(rows);impl_->scratch=std::make_unique<Trees>(input.size());}
+ std::vector<DeviceSlot> slots;
+ for(int k=0;k<impl_->slot_count;++k) {
+  const auto& profile=impl_->layout.profiles[k];const auto& layout=impl_->layout.slots[k];
+  impl_->profiles.push_back(std::make_unique<UploadedProfile>(profile,prepared[k]));
+  const auto& nt=impl_->grammar->nonterminals()[layout.nonterminal];DeviceSlot slot{};
+  slot.grammar=impl_->profiles.back()->view(profile);slot.root=profile.root_expression;slot.scope=nt.scope.size();slot.max_depth=layout.max_depth;slot.logical_depth=site_depth;
+  slot.type=impl_->layout.program_terminator || !impl_->layout.whole_program?phase_value_tag(nt.type):kPhaseStatement;
+  if(impl_->layout.whole_program) {
+   slot.local_count=input_names.size();
+   for(int j=0;j<slot.local_count;++j)for(const auto& binding:impl_->grammar->inputs())
+    if(binding.name==input_names[j])slot.locals[j]=phase_value_tag(binding.type);
+  } else {slot.local_count=slot.scope;for(int j=0;j<slot.scope;++j)slot.locals[j]=phase_value_tag(nt.scope[j].type);}
+  slots.push_back(slot);
+ }
+ impl_->slots.upload(slots);
  impl_->current->lengths.upload(lengths);
  {
   Buffer<PhaseTreeNode> nodes;Buffer<int> origins;Buffer<Value> values;Buffer<ImportOffset> offsets;
@@ -615,16 +637,6 @@ NativePhasePopulation::NativePhasePopulation(std::shared_ptr<const grammar::Comp
  annotate_import<<<(rows+63)/64,64>>>(pointers(*impl_->current),impl_->slots.data,rows,impl_->slot_count);checked(cudaGetLastError());
  for(const auto& r:impl_->current->lengths.read(rows))phase_layout_require(valid(r),"import site annotation failed");
  if(!impl_->staged_buffers)impl_->reserve_reproduction_buffers();
- {
-  // Every program above passed cold GPU bytecode verification with the same
-  // local/stack limits. No reproduction or program mutation has occurred.
-  // Borrow that exact immutable vector and its bounds only for this synchronous
-  // pack; later generations retain the existing checked lowering/refresh path.
-  // Region programs keep a resident packed form with variable phase slots.
-  // Whole-program members are repacked by the session after each lowering.
-  const gpu_detail::OwnedGpuPrograms initial(impl_->members.programs,impl_->members.fixed_stack_bounds);
-  if(!impl_->layout.whole_program)impl_->initialize_host_packed(impl_->members,initial);
- }
  checked(cudaEventCreate(&impl_->start));checked(cudaEventCreate(&impl_->stop));
 }
 NativePhasePopulation::~NativePhasePopulation() {

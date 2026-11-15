@@ -4,6 +4,8 @@
 #include <array>
 #include <chrono>
 #include <cstdlib>
+#include <functional>
+#include <future>
 #include <iomanip>
 #include <iostream>
 #include <memory>
@@ -189,9 +191,15 @@ void run_phase_population_steady(const EvolutionConfig& cfg,const CaseSet& cases
   // is tracked (a victim is never the best) and `order` is re-sorted once.
   int best=order.front();
   const auto scored=[&](int member){return ScoredGenome{owner.export_member(member),fitness[member],has_wrong?int(wrong[member]):-1};};
+  // The best member is never a victim, so until a placed child becomes the
+  // best its genome and scores are those of the previous history row.
+  bool best_placed=true;
   const auto record=[&]{
     const int best=order.front();
-    result.history_best.push_back(scored(best));result.history_best_fitness.push_back(fitness[best]);
+    if(best_placed)result.history_best.push_back(scored(best));
+    else result.history_best.push_back(result.history_best.back());
+    best_placed=false;
+    result.history_best_fitness.push_back(fitness[best]);
     long double sum=0;for(double f:fitness)sum+=f;
     result.history_mean_fitness.push_back(static_cast<double>(sum/P));
     epoch.total_ms=elapsed(epoch_start);epoch.elapsed_search_ms=elapsed(search_start);
@@ -239,7 +247,7 @@ void run_phase_population_steady(const EvolutionConfig& cfg,const CaseSet& cases
       const int v=victim();
       fitness[v]=child_fitness[b];if(has_wrong)wrong[v]=child_wrong[b];nodes[v]=child_count[b];placed[v]=b;
       if(!has_wrong)selection[v]=fitness[v];
-      if(better(v,best))best=v;
+      if(better(v,best)){best=v;best_placed=true;}
     }
     std::sort(order.begin(),order.end(),better);
     if(order.front()!=best)throw std::logic_error("steady-state best tracking");
@@ -306,7 +314,8 @@ struct GpuPhaseOwner {
 // before completing a generation. No host reproduction or hidden AST replay.
 void evolve_gpu_phase_population(const EvolutionConfig& cfg, const CaseSet& cases,
     const std::vector<ProgramGenome>& population, FitnessSessionGpu& session,
-    EvolutionResult& result, std::chrono::steady_clock::time_point search_start) {
+    EvolutionResult& result, std::chrono::steady_clock::time_point search_start,
+    const std::function<void()>& await_session) {
   const auto schedule=resolve_phase_schedule(cfg.phase_schedule.value_or(PhaseSchedulePolicy{}),int(population.size()));
   const bool steady=schedule.mode==PhaseScheduleMode::SteadyState;
   const auto begin = std::chrono::steady_clock::now();
@@ -314,7 +323,7 @@ void evolve_gpu_phase_population(const EvolutionConfig& cfg, const CaseSet& case
       std::chrono::steady_clock::now()-start).count(); };
   const auto variation = resolve_phase_variation(cfg);
   auto owner = admit_resident([&] { return std::make_unique<repro::NativePhasePopulation>(cfg.compiled_grammar,
-      population,cases.input_names,cfg.gpu_phase_site_depth,variation); });
+      population,cases.input_names,cfg.gpu_phase_site_depth,variation,await_session); });
   result.timing.init_population_ms += elapsed(begin);
   result.reproduction_profile = owner->profile_name();
   result.gpu_stage_storage_reserved_bytes=owner->stage_storage_reserved_bytes();
@@ -449,44 +458,62 @@ EvolutionResult evolve_population(const std::vector<EvalCase>& cases,
 
 #ifdef GAGP_HAS_CUDA
   FitnessSessionGpu gpu_session;
+  // Session setup is dominated by CUDA context creation and reads only the
+  // cases. It runs beside host admission (population initialization, owner
+  // import and verification) and the owner awaits it before its first CUDA
+  // call. A failed setup is still reported before any admission error.
+  std::future<FitnessSessionInitResult> gpu_init;
+  const auto await_session = [&] {
+    if (!gpu_init.valid()) return;
+    const FitnessSessionInitResult init_result = gpu_init.get();
+    if (!init_result.ok)
+      throw std::runtime_error("gpu fitness session init failed: " + init_result.err.message);
+    result.timing.gpu_eval_init_ms = init_result.timing.total_ms;
+    if (!gpu_session.use_device())
+      throw std::runtime_error("gpu fitness session init failed: cuda set device failure");
+  };
 #endif
   if (cfg.eval_engine == EvalEngine::GPU) {
 #ifdef GAGP_HAS_CUDA
-    const FitnessSessionInitResult init_result =
-        gpu_session.init(case_set.bindings, case_set.expected_values, cfg.fuel,
-                         cfg.gpu_blocksize, cfg.penalty, cfg.fitness_policy);
-    if (!init_result.ok) {
-      throw std::runtime_error("gpu fitness session init failed: " + init_result.err.message);
-    }
-    result.timing.gpu_eval_init_ms = init_result.timing.total_ms;
+    gpu_init = std::async(std::launch::async, [&] {
+      return gpu_session.init(case_set.bindings, case_set.expected_values, cfg.fuel,
+                              cfg.gpu_blocksize, cfg.penalty, cfg.fitness_policy);
+    });
 #else
     throw std::runtime_error("gpu evaluation requested but CUDA is unavailable in this build");
 #endif
   }
 
-  const auto init_t0 = std::chrono::steady_clock::now();
-  // A site-depth run without a saved population grows its own phase genes;
-  // the grammar generator does not respect the invocation-depth cap.
-  std::vector<ProgramGenome> phase_initial;
-  if (!initial_population && cfg.gpu_phase_site_depth) {
-    phase_initial = admit_resident([&] { return repro::generate_phase_initial_population(*cfg.compiled_grammar,
-        grammar::entry_request(*cfg.compiled_grammar), case_set.input_names, cfg.population_size, cfg.seed,
-        cfg.gpu_phase_site_depth); });
-    initial_population = &phase_initial;
-  }
-  PopulationInitialization initialization =
-      initialize_population(cfg, case_set, initial_population);
-  std::vector<ProgramGenome> population = std::move(initialization.population);
-  result.timing.init_population_ms =
-      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - init_t0).count();
+  try {
+    const auto init_t0 = std::chrono::steady_clock::now();
+    // A site-depth run without a saved population grows its own phase genes;
+    // the grammar generator does not respect the invocation-depth cap.
+    std::vector<ProgramGenome> phase_initial;
+    if (!initial_population && cfg.gpu_phase_site_depth) {
+      phase_initial = admit_resident([&] { return repro::generate_phase_initial_population(*cfg.compiled_grammar,
+          grammar::entry_request(*cfg.compiled_grammar), case_set.input_names, cfg.population_size, cfg.seed,
+          cfg.gpu_phase_site_depth); });
+      initial_population = &phase_initial;
+    }
+    PopulationInitialization initialization =
+        initialize_population(cfg, case_set, initial_population);
+    std::vector<ProgramGenome> population = std::move(initialization.population);
+    result.timing.init_population_ms =
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - init_t0).count();
 
-  initial_payload_lifetime.retain(population, result.history_best);
-  if (cfg.eval_engine == EvalEngine::GPU) {
+    initial_payload_lifetime.retain(population, result.history_best);
+    if (cfg.eval_engine == EvalEngine::GPU) {
 #ifdef GAGP_HAS_CUDA
-    evolve_gpu_phase_population(cfg, case_set, population, gpu_session, result, all_t0);
+      evolve_gpu_phase_population(cfg, case_set, population, gpu_session, result, all_t0, await_session);
 #endif
-  } else {
-    evolve_cpu_phase_population(cfg, case_set, population, result, all_t0);
+    } else {
+      evolve_cpu_phase_population(cfg, case_set, population, result, all_t0);
+    }
+  } catch (...) {
+#ifdef GAGP_HAS_CUDA
+    await_session();
+#endif
+    throw;
   }
   initial_payload_lifetime.retain({},result.history_best,cfg.skip_final_eval ? nullptr : &result.best,
       cfg.retain_final_population ? &result.final_population : nullptr);

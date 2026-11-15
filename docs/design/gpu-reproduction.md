@@ -12,8 +12,9 @@ system is [research-mainline.md](research-mainline.md).
 The population lives on the device for the whole run as fixed-shape *phase genes*.
 Tournament selection, typed subtree crossover, subtree mutation, elitism and
 lowering of changed programs to bytecode all run as GPU kernels, and the GPU
-evaluator reads the lowered programs in place. Only the fitness vector and
-each generation's champion return to the host.
+evaluator reads the lowered programs in place. Only the fitness vector returns
+to the host each generation. A champion is exported only when a newly placed
+child becomes the best, and otherwise the history repeats the previous one.
 
 | Owner | File | Engine |
 | --- | --- | --- |
@@ -29,6 +30,14 @@ construction rejects it, and `evolve_population` raises `invalid_argument`
 with a message that begins `resident engine cannot admit this grammar or
 initial population:` and names the construct. `gagp run` prints it and exits
 with status 2 without writing a result. No other engine runs instead.
+
+GPU construction admits every member on the host (import, phase grammar
+tables, bytecode verification and the packed evaluator form) before its first
+CUDA call. `evolve_population` meanwhile initializes the evaluation session,
+whose cost is mostly CUDA context creation, on a second thread, and the owner
+waits for it right before that first call. Neither thread evaluates or
+reproduces programs. A failed session is still reported before any admission
+error.
 
 ## Genome layouts
 
