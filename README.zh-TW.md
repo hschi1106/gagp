@@ -76,8 +76,20 @@ cpp/build/gagp run benchmarks/psb1_g3p/small_or_large/task.json --search benchma
 - **演算法結構樣板。** ASGP 的 30 個任務（[`benchmarks/asgp30`](benchmarks/README.md)）：
   分治與動態規劃架構，搭配有界遞迴，由運算子集合填入。
 - **已發表 G3P 研究風格的敘述式文法。** 六個 PSB1 問題
-  （[`benchmarks/psb1_g3p`](benchmarks/psb1_g3p/README.md)）：賦值、`if`、`for` 迴圈，
+  （[`benchmarks/psb1_g3p`](benchmarks/psb1_g3p/README.md)）：賦值、`if`、`for` 與 `while` 迴圈，
   以及列表與字串內建函式，移植自 Forstenlechner 的 G3P 文法。
+
+語言具備這些文法所需的功能：
+
+- **有界的 `while`。** `while_stmt(Int, Bool, Block)` 執行主體直到條件為假或達到上限，然後正常離開
+  （[程式文法](spec/grammar.md#program-grammar)）。
+- **列表與字串內建函式。** `insert`、`remove_at`、`set_at`、`index_mod`、列表的 `contains`、`range`、
+  `strip`、`lstrip`、`rstrip`、`startswith`、`endswith` 與 `capitalize` 在兩個引擎上都能執行
+  （[列表內建函式](spec/builtins_runtime.md)、[字串內建函式](spec/builtins_base.md)）。
+- **配置規則。** 任務設定 `fitness.list_allocation_limit` 時，程式建立的每個列表與字串以及每個輸入都計入上限，
+  超出上限是計分的測資錯誤。實體記憶體耗盡絕不是分數，而是讓執行停止
+  （[任務檔](spec/task.md#task-file)、
+  [配置邊界](spec/fitness.md#cpu-payload-allocation-boundary)）。
 
 兩個測試集都由 `benchmarks/run.py` 執行。PSB1 的測資檔來自 PonyGE2，第二個指令負責轉換：
 
@@ -133,17 +145,13 @@ python3 benchmarks/run.py report
 
 ## 限制
 
-- **沒有無界迴圈。** 語言只有 `for_range`、對列表或字串的走訪，以及有 frame、memo 與 fuel 上限的有界遞迴區域，
-  沒有 `while`。fuel 限制每個程式，用完 fuel 的程式在該測資上失敗。這也是 PSB1 文法沒有 `while` 的原因。
+- **沒有無界迴圈。** 語言有 `for_range`、有界的 `while_stmt`、對列表或字串的走訪，以及有 frame、memo 與 fuel 上限的有界遞迴區域。
+  fuel 限制每個程式，用完 fuel 的程式在該測資上失敗。
 - **接納容量。** 常駐引擎把族群存成固定大小的基因，所以文法必須符合它的上限：
   每個程式最多 2048 個節點、深度 64，每個變動階段最多 1024 個節點，族群最多 16384，還有其他上限
   （[常駐容量](spec/search_config.md#resident-capacities)）。
-- **會被拒絕的構件。** 語言中有三種構件是常駐引擎目前還無法容納的：`sequence` 常數域、
-  在兩種不同詞法綁定環境下被到達的非終結符，以及有界區域階段內的走訪
-  （[常駐接納](spec/search_config.md#resident-admission)）。
-- **敘述式文法的 site depth。** 使用預設的 `limits.site_depth`（7）時，六個 `psb1_g3p` 文法中有五個會被
-  以 `import site annotation failed` 拒絕。每個問題的 `search.json` 把 `site_depth` 設為 0，
-  用 `--search` 傳給 `gagp run`。
+- **語言限制。** 常駐引擎會拒絕文法語言的兩種構件：`sequence` 常數域，以及在兩種不同詞法綁定環境下被到達的非終結符。
+  它們只在[語言限制](spec/search_config.md#language-restrictions)中列出一次。
 - **拒絕就是錯誤。** 無法被接納的文法會讓 `gagp run` 在第一代之前以結束碼 2 停止，
   訊息指出構件或容量與超出的值。沒有後備引擎。
 - **語言本身的其他限制。** 選擇只有錦標賽，列表不能巢狀，值型別共八種

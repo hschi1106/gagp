@@ -159,7 +159,10 @@ grammar locals, and 512 nodes in statement programs
 grammar outside these limits `gagp run` stops before the search with
 `resident engine cannot admit this grammar or initial population: ...` and
 exits with status 2. The message names the limit and the value that exceeds it.
-Tighter `search_limits` are the usual fix.
+Tighter `search_limits` are the usual fix. Two constructs are rejected at any
+size, `sequence` constant domains and a nonterminal reached under two different
+lexical binder environments
+([language restrictions](../../spec/search_config.md#language-restrictions)).
 
 ## Initial populations
 

@@ -45,7 +45,7 @@ with statements, `let` binders, traversals and bounded regions, and fixed
 region templates with up to 8 varied phases
 ([admission](gpu-reproduction.md#genome-layouts)). A grammar outside its
 [capacities](../../spec/search_config.md#resident-capacities), or one that uses a
-construct it does not yet hold, is rejected with an error before the search
+[language restriction](../../spec/search_config.md#language-restrictions), is rejected with an error before the search
 starts ([admission](../../spec/search_config.md#resident-admission)).
 
 ## Default search

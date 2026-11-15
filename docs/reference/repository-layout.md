@@ -11,8 +11,16 @@ column exists.
 | `AGENTS.md` | Rules for coding agents and contributors |
 | `.agents/skills/gagp-navigation/SKILL.md` | Where to find the code, contract and tests of a feature |
 | `examples/` | Complete runnable tasks |
-| `benchmarks/` | The `asgp30` and `psb1_g3p` benchmark suites and their runner, `run.py` |
+| `benchmarks/` | The `asgp30` and `psb1_g3p` benchmark suites and their runner |
+| `benchmarks/README.md` | The benchmark guide, the runner options and the recorded results |
 | `benchmarks/run.py` | Runs a suite on either engine and writes the report |
+| `benchmarks/test_run.py` | Tests of the runner on the `asgp30` suite |
+| `benchmarks/test_run_psb1_g3p.py` | Tests of the runner on the `psb1_g3p` suite |
+| `benchmarks/asgp30/` | The 30 ASGP tasks |
+| `benchmarks/asgp30/asgp_paper.json` | The published ASGP success counts |
+| `benchmarks/psb1_g3p/` | Six PSB1 tasks with G3P grammars |
+| `benchmarks/psb1_g3p/literature.json` | The published G3P success counts |
+| `benchmarks/psb1_g3p/README.md` | The `psb1_g3p` guide: data, settings, differences from G3P |
 | `benchmarks/psb1_g3p/build.py` | Generator of the `psb1_g3p` grammars, tasks and case files |
 | `configs/search/default.json` | The default search configuration |
 | `configs/grammar/` | Grammar packages and example grammars |

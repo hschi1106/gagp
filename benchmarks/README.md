@@ -117,25 +117,12 @@ Provenance:
   Levenshtein distance for list outputs (with a limit of 65,536 list cells per
   case, input lists included), or tuple summary. The case-error cap is 1000.
 
-These files were produced from the ASGP generator output by the GAGP 2.x
-fixed-ASGP adapter (git tag `gagp-pre-3.0`), the same inputs as GAGP's final
-scale study.
+These files were produced from the ASGP generator output by the fixed-ASGP
+adapter of an earlier release (git tag `gagp-pre-3.0`).
 
 ## Recorded results
 
-Release 3.0 on an RTX 3090 (`python3 benchmarks/run.py run`, then the quick
-runs on both engines):
+The numbers below are for the commit that the report names. The release history
+of earlier measurements is in [VERSION.md](../VERSION.md).
 
-- Full suite, GPU, P1024, G64, seeds 1-5: 56/150 runs solved, 524 s of runs in
-  total. GAGP's final scale study (ASGP-initialized populations, otherwise the
-  same search) solved 52/150.
-- Quick runs, GPU vs CPU reference (P1024, G16, seed 1): the same result on all
-  6 tasks. Speedup from 5.2x (the median task) to 185x (double_letters), geometric mean
-  30x, 129x in total time.
-- ASGP-shaped searches, release 3.0.1: the frozen ASGP-initialized
-  populations of the final scale study (P16384, G64, seed 1, default search),
-  1263 s of GAGP runs for the 30 tasks. Champions and best-of-generation
-  histories equal those of 2.x on all 30. 2.x took 1.17x longer (geometric
-  mean), single-threaded ASGP 95x longer (about 74x after correcting for the
-  contention of its 8 concurrent workers). These inputs and ASGP timings are
-  not part of the repository.
+<!-- FREEZE-RESULTS -->

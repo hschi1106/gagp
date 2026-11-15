@@ -64,6 +64,25 @@ class TestDocumentation(unittest.TestCase):
         self.assertGreater(len(paths), 15)
         self.assertEqual([], [path for path in paths if not (ROOT / path).exists()])
 
+    def test_repository_layout_lists_each_path_once(self) -> None:
+        layout = (ROOT / "docs" / "reference" / "repository-layout.md").read_text(encoding="utf-8")
+        paths = LAYOUT_PATH.findall(layout)
+        self.assertEqual([], sorted({path for path in paths if paths.count(path) > 1}))
+        listed = {path.rstrip("/") for path in paths}
+        expected = {path.relative_to(ROOT).as_posix()
+                    for directory in ("benchmarks", "benchmarks/psb1_g3p", "benchmarks/asgp30")
+                    for path in (ROOT / directory).iterdir()
+                    if path.is_file() and path.suffix in {".md", ".py", ".json"}
+                    and not path.name.endswith(".cases.json") and path.name != "task.json"}
+        expected |= {"benchmarks/asgp30", "benchmarks/psb1_g3p"}
+        self.assertEqual([], sorted(expected - listed), "paths missing from the repository layout")
+
+    def test_benchmark_readmes_keep_the_result_markers(self) -> None:
+        for name, marker in (("benchmarks/README.md", "<!-- FREEZE-RESULTS -->"),
+                             ("benchmarks/psb1_g3p/README.md", "<!-- FREEZE-RESULTS-PSB1 -->")):
+            lines = (ROOT / name).read_text(encoding="utf-8").splitlines()
+            self.assertEqual(1, lines.count(marker), name)
+
     def test_json_examples_parse(self) -> None:
         failures = []
         for document in maintained_markdown():

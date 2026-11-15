@@ -96,6 +96,13 @@ On ASGP-shaped searches with population 16384, 3.0.1 is 1.016x faster than
 3.0.0 (geometric mean; up to 1.07x on `all_equal` and `is_sorted`) and 1.17x
 faster than 2.x.
 
+The measurement used the frozen ASGP-initialized populations of the final scale
+study (30 tasks, P16384, G64, seed 1, default search): 1263 s of GAGP runs,
+champions and best-of-generation histories equal to those of 2.x on all 30,
+2.x took 1.17x longer (geometric mean), and single-threaded ASGP took 95x
+longer (about 74x after correcting for the contention of its 8 concurrent
+workers). These inputs and the ASGP timings are not part of the repository.
+
 ## 3.0.0
 
 Release 3.0 makes GAGP one program with one search configuration. The
@@ -141,6 +148,14 @@ runtime semantic identity stays `gagp-native-2.0.0`.
 Search results of 3.0 equal those of the last 2.x build for the same inputs
 and search settings (checked on 65 golden runs). On ASGP-shaped searches
 with population 16384, 3.0 is about 1.15x faster than 2.x.
+
+Measured on an RTX 3090 with `benchmarks/run.py`: the full `asgp30` suite on
+the GPU (P1024, G64, seeds 1-5) solved 56 of 150 runs in 524 s of runs in
+total, and the final scale study (ASGP-initialized populations, otherwise the
+same search) solved 52 of 150. The quick runs (P1024, G16, seed 1) gave the
+same result on both engines on all 6 tasks, with GPU speedups from 5.2x (the
+`median` task) to 185x (`double_letters`), geometric mean 30x and 129x in
+total time.
 
 ## 2.0.0
 
