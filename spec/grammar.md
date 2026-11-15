@@ -160,7 +160,8 @@ historical names to describe the intent they reproduce; names do not create
 native node kinds, runtime schemes, or compiler branches.
 
 Numeric AST kinds 53 through 70 are permanently unassigned. General region
-forms begin at 71. The normal AST decoder accepts only `ast-prefix-v2` and
+forms begin at 71, the G3P builtin call kinds occupy 82 through 95, and
+`WhileStmt` is kind 96 (listed in [bytecode_format.md](./bytecode_format.md)). The normal AST decoder accepts only `ast-prefix-v2` and
 rejects these holes.
 
 ## Generation, membership, and variation

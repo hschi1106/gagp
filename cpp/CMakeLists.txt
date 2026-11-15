@@ -367,6 +367,11 @@ target_link_libraries(gagp_test_payload_staging PRIVATE gagp_cpu)
 add_test(NAME gagp_test_payload_staging COMMAND gagp_test_payload_staging)
 set_tests_properties(gagp_test_payload_staging PROPERTIES LABELS "unit;contract")
 
+add_executable(gagp_test_g3p_builtins tests/runtime/test_g3p_builtins.cpp)
+target_link_libraries(gagp_test_g3p_builtins PRIVATE gagp_cpu)
+add_test(NAME gagp_test_g3p_builtins COMMAND gagp_test_g3p_builtins)
+set_tests_properties(gagp_test_g3p_builtins PROPERTIES LABELS "unit;contract")
+
 add_executable(gagp_test_payload_registry
   tests/runtime/test_payload_registry.cpp
 )
@@ -452,7 +457,7 @@ if(Python3_Interpreter_FOUND)
   set_tests_properties(gagp_test_repository_contract PROPERTIES
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/..
     LABELS "tooling;contract")
-  add_test(NAME gagp_test_bench_runner COMMAND ${Python3_EXECUTABLE} -m unittest benchmarks/test_run.py)
+  add_test(NAME gagp_test_bench_runner COMMAND ${Python3_EXECUTABLE} -m unittest benchmarks/test_run.py benchmarks/test_run_psb1_g3p.py)
   set_tests_properties(gagp_test_bench_runner PROPERTIES
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/..
     LABELS "tooling")

@@ -189,6 +189,15 @@ type, scope and general-region metadata. Recompile the program from its
 
 The `ast-prefix-v2` node kinds 78 and 79 are `CALL_TRUNC_DIV0` and
 `CALL_TRUNC_MOD0`, respectively. They are binary Int expressions lowering to
-`CALL_BUILTIN` IDs 28 and 29. Existing numeric node kinds remain unchanged,
+`CALL_BUILTIN` IDs 28 and 29. Kinds 80 and 81 are `CALL_INDEX_NONNEGATIVE` and
+`CALL_INDEX_CLAMPED_OR_ZERO`. Kinds 82 through 95 are the G3P builtins
+`CALL_INSERT`, `CALL_REMOVE_AT`, `CALL_SET_AT`, `CALL_INDEX_MOD`, `CALL_RANGE`,
+`CALL_STRIP`, `CALL_LSTRIP`, `CALL_RSTRIP`, `CALL_STRIP_CHARS`,
+`CALL_LSTRIP_CHARS`, `CALL_RSTRIP_CHARS`, `CALL_STARTSWITH`, `CALL_ENDSWITH` and
+`CALL_CAPITALIZE`; each lowers to the `CALL_BUILTIN` ID of the same name (32
+through 45) with the node's arity. The program JSON spells them `call_insert`,
+`call_remove_at`, and so on. List `contains` reuses `CALL_CONTAINS`.
+Kind 96 is the statement `WHILE_STMT` (`while_stmt`), which lowers to existing
+load, store, comparison and jump instructions. Existing numeric node kinds remain unchanged,
 including reserved legacy kinds 53 through 70. Their contract is in
 [builtins_base.md](builtins_base.md).

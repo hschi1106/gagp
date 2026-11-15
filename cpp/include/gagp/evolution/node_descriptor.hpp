@@ -83,6 +83,20 @@ enum class GrammarFeature {
   BuiltinToUpper,
   BuiltinToString,
   BuiltinSingleton,
+  BuiltinInsert,
+  BuiltinRemoveAt,
+  BuiltinSetAt,
+  BuiltinIndexMod,
+  BuiltinRange,
+  BuiltinStrip,
+  BuiltinLStrip,
+  BuiltinRStrip,
+  BuiltinStripChars,
+  BuiltinLStripChars,
+  BuiltinRStripChars,
+  BuiltinStartsWith,
+  BuiltinEndsWith,
+  BuiltinCapitalize,
   GeneralRegion,
 };
 
@@ -129,7 +143,7 @@ struct NodeDescriptor {
   constexpr bool is_builtin() const noexcept { return builtin_id >= 0; }
 };
 
-inline constexpr std::size_t k_node_kind_count = 65;
+inline constexpr std::size_t k_node_kind_count = 79;
 
 const std::array<NodeDescriptor, k_node_kind_count>& all_node_descriptors() noexcept;
 const NodeDescriptor& node_descriptor(NodeKind kind);

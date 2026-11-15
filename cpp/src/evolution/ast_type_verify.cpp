@@ -40,6 +40,10 @@ bool is_sequence_type(RType type) {
          type == RType::FloatList || type == RType::StringList;
 }
 
+bool is_list_type(RType type) {
+  return type == RType::IntList || type == RType::FloatList || type == RType::StringList;
+}
+
 RType list_element_type(RType type) {
   if (type == RType::IntList) return RType::Int;
   if (type == RType::FloatList) return RType::Float;
@@ -423,9 +427,44 @@ class TypedVerifier {
       if (!is_sequence_type(args[0])) return fail_expr(VerifyCode::TypeMismatch, node_index, "reverse requires a sequence");
       return typed(node_index, args[0]);
     }
+    if (kind == NodeKind::CALL_CONTAINS && is_list_type(args[0])) {
+      if (list_element_type(args[0]) != args[1]) return fail_expr(VerifyCode::TypeMismatch, node_index, "list contains requires the exact element type");
+      return typed(node_index, RType::Bool);
+    }
     if (kind == NodeKind::CALL_FIND || kind == NodeKind::CALL_CONTAINS) {
       if (args[0] != RType::String || args[1] != RType::String) return fail_expr(VerifyCode::TypeMismatch, node_index, "find/contains require String arguments");
       return typed(node_index, kind == NodeKind::CALL_FIND ? RType::Int : RType::Bool);
+    }
+    if (kind == NodeKind::CALL_INSERT || kind == NodeKind::CALL_SET_AT) {
+      if (!is_list_type(args[0]) || args[1] != RType::Int || list_element_type(args[0]) != args[2])
+        return fail_expr(VerifyCode::TypeMismatch, node_index, "insert/set_at require (List, Int, element)");
+      return typed(node_index, args[0]);
+    }
+    if (kind == NodeKind::CALL_REMOVE_AT) {
+      if (!is_list_type(args[0]) || args[1] != RType::Int) return fail_expr(VerifyCode::TypeMismatch, node_index, "remove_at requires (List, Int)");
+      return typed(node_index, args[0]);
+    }
+    if (kind == NodeKind::CALL_INDEX_MOD) {
+      if (args[1] != RType::Int || !is_sequence_type(args[0])) return fail_expr(VerifyCode::TypeMismatch, node_index, "index_mod requires (Seq, Int)");
+      return typed(node_index, args[0] == RType::String ? RType::String : list_element_type(args[0]));
+    }
+    if (kind == NodeKind::CALL_RANGE) {
+      if (args[0] != RType::Int || args[1] != RType::Int) return fail_expr(VerifyCode::TypeMismatch, node_index, "range requires (Int, Int)");
+      return typed(node_index, RType::IntList);
+    }
+    if (kind == NodeKind::CALL_STRIP || kind == NodeKind::CALL_LSTRIP || kind == NodeKind::CALL_RSTRIP ||
+        kind == NodeKind::CALL_CAPITALIZE) {
+      if (args[0] != RType::String) return fail_expr(VerifyCode::TypeMismatch, node_index, "string builtin requires a String argument");
+      return typed(node_index, RType::String);
+    }
+    if (kind == NodeKind::CALL_STRIP_CHARS || kind == NodeKind::CALL_LSTRIP_CHARS ||
+        kind == NodeKind::CALL_RSTRIP_CHARS) {
+      if (args[0] != RType::String || args[1] != RType::String) return fail_expr(VerifyCode::TypeMismatch, node_index, "strip with characters requires (String, String)");
+      return typed(node_index, RType::String);
+    }
+    if (kind == NodeKind::CALL_STARTSWITH || kind == NodeKind::CALL_ENDSWITH) {
+      if (args[0] != RType::String || args[1] != RType::String) return fail_expr(VerifyCode::TypeMismatch, node_index, "startswith/endswith require String arguments");
+      return typed(node_index, RType::Bool);
     }
     if (kind == NodeKind::CALL_CHAR_TO_STRING) return unary_builtin(node_index, args[0], RType::Char, RType::String);
     if (kind == NodeKind::CALL_STRING_TO_CHAR) return unary_builtin(node_index, args[0], RType::String, RType::Char);

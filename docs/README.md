@@ -29,7 +29,7 @@ it works, and link to the specification instead of restating it.
 | [GPU reproduction](design/gpu-reproduction.md) | The resident GPU engine and its CPU reference: layouts, capacities, operators, schedules |
 | [Payload values](design/payload.md) | How strings and lists are stored on the host and the GPU |
 
-The benchmark suite is documented in [benchmarks/README.md](../benchmarks/README.md),
+The benchmark suites are documented in [benchmarks/README.md](../benchmarks/README.md),
 grammar files in [configs/grammar/README.md](../configs/grammar/README.md), and
 releases in [VERSION.md](../VERSION.md).
 
