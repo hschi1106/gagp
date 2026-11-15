@@ -597,6 +597,35 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
       if(cheapest!=out.minimum[i*out.depth_count+d])fail("unit production budget differs from its alternatives");
     }
   }
+  // Repeated holes: share_phase_tree holds one record per repeated hole of
+  // each open template instance, from the hole's first occurrence until the
+  // instance closes. Over every tree within the depth budget, the most records
+  // at once is the largest sum of repeated holes over nested instances.
+  if(!out.shared.empty()) {
+    std::vector<int> holes(out.expressions.size());
+    for(std::size_t i=0;i<out.shared.size();++i)if(out.shared[i].first==int(i))++holes.at(out.shared[i].owner);
+    const std::size_t depths=out.depth_count;
+    const auto feasible=[&](int id,int d){return out.minimum[std::size_t(id)*depths+d]!=kNoGrammarId;};
+    std::vector<int> most(out.expressions.size()*depths,-1);
+    // A reference and its production root share a depth; every production
+    // root resolves to a node (checked above), so the recursion terminates.
+    std::function<int(int,int)> records=[&](int id,int d)->int {
+      if(most[std::size_t(id)*depths+d]>=0)return most[std::size_t(id)*depths+d];
+      const auto& e=out.expressions[id];int r=0;
+      if(e.kind==PhaseExpressionKind::Alias)r=records(e.children[0],d)+(out.shared[id].instance?holes[id]:0);
+      else if(e.kind==PhaseExpressionKind::Reference) {
+        const auto& nt=out.nonterminals[e.target];
+        for(int i=0;i<nt.production_count;++i) {
+          const int child=out.productions[nt.production_offset+i].expression;
+          if(feasible(child,d))r=std::max(r,records(child,d));
+        }
+      } else if(d>0)for(int i=0;i<e.node.arity;++i)if(feasible(e.children[i],d-1))r=std::max(r,records(e.children[i],d-1));
+      return most[std::size_t(id)*depths+d]=r;
+    };
+    const int r=records(out.root_expression,max_depth);
+    if(r>kPhaseSharedRecords)fail("repeated hole capacity within the depth budget: up to "+std::to_string(r)+
+        " repeated holes of nested template instances on one path exceed the capacity of "+std::to_string(kPhaseSharedRecords));
+  }
   // Lowering never runs out of its fixed tables during a search: over every
   // tree within the physical depth budget, bound the open traversals, lets,
   // loops and value ifs on one path and the temporaries they hold (a traversal

@@ -296,6 +296,8 @@ inline NativePhaseLayout import_native_phase_layout(const grammar::CompiledGramm
       const PhaseTreeView in{gene.nodes.data(), gene.origins.data(), nullptr, gene.constants.data(), count, constants};
       const auto shared = share_phase_tree<true>(phase_structure_view(profile), int(profile.root_expression),
           int(grammar.nonterminals().at(slot.nonterminal).scope.size()), in, {nodes.data(), origins.data(), sites.data(), values.data(), 1024});
+      phase_member_capacity_require(shared.status != PhaseCompileStatus::Capacity,
+          "the repeated hole walk of a phase exceeds its capacity");
       phase_layout_require(shared.status == PhaseCompileStatus::Ok && shared.nodes == count && shared.constants == constants,
                            "repeated hole copies differ");
       gene.nodes.assign(nodes.begin(), nodes.begin() + count); gene.origins.assign(origins.begin(), origins.begin() + count);

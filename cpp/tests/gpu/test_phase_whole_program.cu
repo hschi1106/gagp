@@ -400,6 +400,31 @@ void check_initial_capacity() {
  }
  std::cout<<"initial populations: over-capacity draws redrawn identically on CPU and GPU, admissible draws unchanged\n";
 }
+// 32 nested forwarding templates around add(v,v) search identically on both
+// owners. 33 exceed the repeated-hole records and are rejected at admission
+// on both, naming the capacity.
+void check_shared_hole_records() {
+ for(const int nested:{32,33}) {
+  const auto fixture=std::string("phase_shared_holes_")+std::to_string(nested)+".json";
+  const auto compiled=std::make_shared<const grammar::CompiledGrammar>(grammar::compile_grammar(
+      grammar::load_definition(std::string(GAGP_REPOSITORY_ROOT "/cpp/tests/fixtures/")+fixture)));
+  const auto cases=cli_detail::decode_fitness_cases_json(cli_detail::JsonParser(cases_json(*compiled),{true,64}).parse());
+  EvolutionConfig cfg;cfg.population_size=8;cfg.generations=2;cfg.seed=0;cfg.elite_count=1;cfg.mutation_rate=0.5;
+  cfg.compiled_grammar=compiled;cfg.fuel=compiled->execution_limits().fuel;cfg.penalty=1000;cfg.gpu_blocksize=32;
+  std::vector<Trace> traces;
+  for(const bool gpu:{false,true}) {
+   auto run=cfg;run.eval_engine=gpu?EvalEngine::GPU:EvalEngine::CPU;
+   std::string error;
+   try{traces.push_back(trace(evolve_population(cases,run)));}catch(const std::invalid_argument& e){error=e.what();}
+   const auto label=fixture+(gpu?" GPU":" CPU");
+   if(nested==32)require(error.empty(),label+": "+error);
+   else require(error.find("resident engine cannot admit")!=std::string::npos &&
+       error.find("up to 33 repeated holes of nested template instances on one path exceed the capacity of 32")!=std::string::npos,label+": "+error);
+  }
+  if(nested==32)require_same(traces[0],traces[1],fixture);
+ }
+ std::cout<<"phase_shared_holes: 32 nested repeated holes identical on CPU and GPU, 33 rejected at admission on both\n";
+}
 }  // namespace
 
 int main() { try {
@@ -422,6 +447,7 @@ int main() { try {
  check("cpp/tests/fixtures/phase_unit_statements.json",Fixture::Statements);
  check_unit_weight_overflow();
  check_initial_capacity();
+ check_shared_hole_records();
  // Repeated holes share one derivation: recursive, skewed in depth, with a
  // constant in the fill, forwarded through a nested template, and under a let.
  check("cpp/tests/fixtures/phase_repeated.json",Fixture::Templates);

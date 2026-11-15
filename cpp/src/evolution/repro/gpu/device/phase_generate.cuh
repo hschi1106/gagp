@@ -67,6 +67,9 @@ struct PhaseDomain {
 // fills compile in post-order) to its own by adding `delta`; nodes derived
 // below a reference keep their expression.
 struct PhaseSharedHole { int first=-1, delta=0, low=0, high=-1, owner=-1; bool instance=false; };
+// Records share_phase_tree holds at once: one per repeated hole of every open
+// template instance on the walked path. Grammar admission bounds it.
+constexpr int kPhaseSharedRecords = 32;
 struct PhaseChoiceHeader { int value_offset=0, value_count=-1, empty_status=0; };
 struct PhaseChoiceSet { int status=0, count=0, threshold_offset=0, choice_offset=0; };
 struct PhaseGrammarView {

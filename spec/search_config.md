@@ -209,6 +209,7 @@ over one, and variation rejects a candidate over one and draws or tries again.
 | Visible lexical bindings | 15 |
 | Static binder numbers (`let` and traversal bindings) | 16 |
 | Bindings in the scope of a nonterminal, reference, template or hole | 8 |
+| Repeated holes of the template instances nested on one path | 32 |
 | Operands plus phases of one bounded region | 8 |
 | Captures of one bounded region | 8 |
 | Bindings of one bounded region phase | 7 |

@@ -186,6 +186,17 @@ void check_repeated_holes() {
   }
  }
  require(copies>0 && tampered>0,"repeated-hole fixture did not exercise copies");
+ // 32 and 33 nested forwarding templates around add(v,v): the repeated-hole
+ // walk holds one record per nested instance, so 33 exceed its capacity.
+ for(const int nested:{32,33}) {
+  const auto path=std::string(GAGP_REPOSITORY_ROOT "/cpp/tests/fixtures/phase_shared_holes_")+std::to_string(nested)+".json";
+  const auto chain=grammar::compile_grammar(grammar::load_definition(path));
+  std::string error;
+  try{(void)compile_phase_grammar(chain,chain.entry(),chain.search_limits().max_depth);}catch(const std::invalid_argument& e){error=e.what();}
+  if(nested==32)require(error.empty(),("32 nested repeated holes rejected: "+error).c_str());
+  else require(error.find("up to 33 repeated holes of nested template instances on one path exceed the capacity of 32")!=std::string::npos,
+      ("33 nested repeated holes: "+error).c_str());
+ }
 }
 int main(int argc,char** argv) {try {
  require(argc==1 || argc==3,"usage: test_gpu_phase_layout [PREPARED_JSON GRAMMAR_JSON]");
