@@ -161,64 +161,53 @@ void test_generation(bool quantized, bool separated = false) {
     require_membership(*grammar, outside);
   }
 }
-void test_additive_mutation() {
-  for (const auto text : {
-      R"({"type":"Int","values":["0"],"mutation":{"kind":"add","range":["-2","2"]}})",
-      R"({"type":"Bool","values":[false,true],"mutation":{"kind":"add","range":[-1,1]}})",
-      R"({"type":"Float","range":[-8,8],"quantization_scale":1000,"mutation":{"kind":"add","range":[-1,1]}})",
-      R"({"type":"Float","range":[-8,8],"mutation":{"kind":"add","range":[1,-1]}})",
-      R"({"type":"Float","range":[-8,8],"mutation":{"kind":"add","range":[-1,1],"gpu_grid_steps":0}})",
-      R"({"type":"Float","range":[-8,8],"mutation":{"kind":"add","range":[-1,1],"gpu_grid_steps":1.5}})",
-      R"({"type":"Float","range":[-8,8],"mutation":{"kind":"add","range":[-1,1],"gpu_grid_steps":4294967296}})",
-      R"({"type":"Int","range":["-8","8"],"mutation":{"kind":"add","range":["-2","2"],"gpu_grid_steps":1}})",
-      R"({"type":"Int","range":["-8","8"],"mutation":{"kind":"multiply","range":["-2","2"]}})",
-      R"({"type":"Int","range":["-8","8"],"mutation":{"kind":"add","range":["-2","2"],"extra":1}})"})
-    rejects([&] { parse_constant_domain(json(text)); });
-  // Valid additive policies parse; the search operators regenerate subtrees.
-  for (const auto text : {
-      R"({"type":"Int","range":["-100","100"],"sample_from":{"type":"Int","values":["0"]},"mutation":{"kind":"add","range":["1","2"]}})",
-      R"({"type":"Float","range":[-100,100],"sample_from":{"type":"Float","range":[0,0],"quantization_scale":1000},"mutation":{"kind":"add","range":[0.25,0.75],"gpu_grid_steps":65535}})"}) {
-    const auto domain = parse_constant_domain(json(text));
-    check(domain.mutation == ConstantMutationPolicy::Add, "additive policy was not parsed");
-  }
+// The constant mutation policy was removed from the grammar format: every
+// spelling of the member is a parse error that names it, wherever it appears.
+void rejects_mutation_member(const std::string& text, const char* where) {
+  const auto must_name = [&](const std::string& message) {
+    if (message.find("\"mutation\"") == std::string::npos || message.find("not part of the grammar format") == std::string::npos)
+      throw std::runtime_error(std::string(where) + ": the error does not name the removed member: " + message);
+  };
+  std::string message;
+  try { (void)parse_constant_domain(json(text)); } catch (const std::invalid_argument& e) { message = e.what(); }
+  if (message.empty()) throw std::runtime_error(std::string(where) + ": a mutation member was accepted");
+  must_name(message);
+  message.clear();
+  try { (void)decode_constant(json(text)); } catch (const std::invalid_argument& e) { message = e.what(); }
+  if (message.empty()) throw std::runtime_error(std::string(where) + ": a concrete constant accepted a mutation member");
+  must_name(message);
+  // The same domain inside a grammar fails at compilation with the same message.
+  const auto type = json(text).object_v.at("type").string_v;
+  const auto definition = std::string(R"({"format_version":"grammar-definition-v2","entry":{"nonterminal":"C","type":")") +
+      type + R"("},"search_limits":{"max_nodes":5,"max_depth":4},"execution_limits":{"fuel":10},
+      "nonterminals":[{"id":"C","type":")" + type + R"(","scope":[],"alternatives":[
+      {"id":"constant","weight":1,"expression":{"constant":)" + text + R"(}}]}]})";
+  message.clear();
+  try { (void)compile_grammar(parse_definition(definition)); } catch (const std::invalid_argument& e) { message = e.what(); }
+  if (message.empty()) throw std::runtime_error(std::string(where) + ": a grammar with a mutation member compiled");
+  must_name(message);
 }
-
-void test_mutation_policies() {
-  rejects([&] { decode_constant(json(R"({"type":"Bool","values":[false],"mutation":"keep"})")); });
-  for (const auto text : {
-      R"({"type":"Bool","values":[true],"mutation":"flip"})",
-      R"({"type":"Int","values":["1"],"mutation":"flip"})",
-      R"({"type":"Bool","values":[true,false],"mutation":"unknown"})",
-      R"({"type":"Bool","values":[true,false],"mutation":1})",
-      R"({"type":"Float","range":[-1,1],"sample_from":{"type":"Float","values":[0],"mutation":"keep"}})",
-      R"({"type":"IntList","sequence":{"length":[0,1],"element":{"type":"Int","values":["1"],"mutation":"keep"}}})"})
-    rejects([&] { parse_constant_domain(json(text)); });
-  for (const auto text : {
-      R"({"type":"Bool","values":[true,false],"mutation":"flip"})",
-      R"({"type":"Char","values":["a","b"],"mutation":"keep"})",
-      R"({"type":"String","values":["a","b"],"mutation":"keep"})",
-      R"({"type":"IntList","sequence":{"length":[0,5],"element":{"type":"Int","range":["-8","8"]}},"mutation":"keep"})",
-      R"({"type":"FloatList","values":[[0],[1]],"mutation":"keep"})",
-      R"({"type":"StringList","values":[["a"],["b"]],"mutation":"keep"})"}) {
-    const auto domain = json(text);
-    const auto type = domain.object_v.at("type").string_v;
-    const auto definition = std::string(R"({"format_version":"grammar-definition-v2","entry":{"nonterminal":"C","type":")") +
-        type + R"("},"search_limits":{"max_nodes":5,"max_depth":4},"execution_limits":{"fuel":10},
-        "nonterminals":[{"id":"C","type":")" + type + R"(","scope":[],"alternatives":[
-        {"id":"constant","weight":1,"expression":{"constant":)" + text + R"(}}]}]})";
-    auto grammar = std::make_shared<const CompiledGrammar>(compile_grammar(parse_definition(definition)));
-    const bool flip = type == "Bool";
-    check(grammar->constants().front().mutation == (flip ? ConstantMutationPolicy::Flip : ConstantMutationPolicy::Keep),
-          "keep/flip policy was not compiled");
-    require_membership(*grammar, generate_derivation(*grammar, 42).genome);
-  }
+void test_mutation_member_removed() {
+  const std::pair<const char*, const char*> cases[] = {
+      {R"({"type":"Bool","values":[true,false],"mutation":"flip"})", "flip"},
+      {R"({"type":"Char","values":["a","b"],"mutation":"keep"})", "keep on Char"},
+      {R"({"type":"String","values":["a","b"],"mutation":"resample"})", "resample"},
+      {R"({"type":"IntList","sequence":{"length":[0,5],"element":{"type":"Int","range":["-8","8"]}},"mutation":"keep"})", "keep on a sequence"},
+      {R"({"type":"Int","values":["1"],"mutation":1})", "number"},
+      {R"({"type":"Int","range":["-100","100"],"sample_from":{"type":"Int","values":["0"]},"mutation":{"kind":"add","range":["1","2"]}})", "Int add"},
+      {R"({"type":"Float","range":[-100,100],"sample_from":{"type":"Float","range":[0,0],"quantization_scale":1000},"mutation":{"kind":"add","range":[0.25,0.75],"gpu_grid_steps":65535}})", "Float add"},
+      {R"({"type":"Float","range":[-1,1],"sample_from":{"type":"Float","values":[0],"mutation":"keep"}})", "inside sample_from"},
+      {R"({"type":"IntList","sequence":{"length":[0,1],"element":{"type":"Int","values":["1"],"mutation":"keep"}}})", "inside a sequence element"}};
+  for (const auto& [text, where] : cases) rejects_mutation_member(text, where);
+  // Without the member the same domains are ordinary domains.
+  (void)parse_constant_domain(json(R"({"type":"Bool","values":[true,false]})"));
+  (void)parse_constant_domain(json(R"({"type":"Float","range":[-100,100],"sample_from":{"type":"Float","range":[-8,8],"quantization_scale":1000}})"));
 }
 }  // namespace
 int main() {
   try {
     test_intervals(); test_quantization(); test_sampling_domains();
-    test_mutation_policies();
-    test_additive_mutation();
+    test_mutation_member_removed();
     test_generation(false); test_generation(true);
     test_generation(false,true); test_generation(true,true);
   }

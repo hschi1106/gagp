@@ -8,7 +8,6 @@
 
 #include "gagp/cli/json.hpp"
 #include "gagp/evolution/ast_program.hpp"
-#include "gagp/evolution/grammar/constant_policy.hpp"
 
 namespace gagp::evo::grammar {
 
@@ -35,8 +34,6 @@ struct ConstantDomain {
   std::uint32_t minimum_length = 0;
   std::uint32_t maximum_length = 0;
   std::uint64_t sequence_storage_bound = 0;
-  ConstantMutationPolicy mutation = ConstantMutationPolicy::Resample;
-  ConstantMutationDelta delta;
 };
 
 ConstantDomain parse_constant_domain(const cli_detail::JsonValue& definition);

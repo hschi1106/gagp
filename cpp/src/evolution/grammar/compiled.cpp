@@ -471,8 +471,6 @@ class GrammarCompiler {
       const auto& domain_json = value.object_v.at("constant");
       if (!out_.constants_.back().integer_range && !out_.constants_.back().float_range && !out_.constants_.back().elements) {
         Json singleton = domain_json;
-        // Variation policy belongs to grammar identity, never value identity.
-        singleton.object_v.erase("mutation");
         singleton.object_v.at("values").array_v.clear();
         for (const auto& item : domain_json.object_v.at("values").array_v) {
           singleton.object_v.at("values").array_v = {item};

@@ -102,10 +102,13 @@ ConstantData decode(const Json& value, RType type) {
 
 ConstantDomain parse_constant_domain(const cli_detail::JsonValue& definition) {
   if (definition.kind != Kind::Object) throw std::invalid_argument("constant domain must be an object");
+  if (definition.object_v.count("mutation"))
+    throw std::invalid_argument(
+        "constant domain: the member \"mutation\" is not part of the grammar format; "
+        "mutation replaces a whole subtree and draws its constants from their domains, so remove it");
   for (const auto& field : definition.object_v)
     if (field.first != "type" && field.first != "values" && field.first != "range" &&
-        field.first != "sequence" && field.first != "quantization_scale" && field.first != "sample_from" &&
-        field.first != "mutation")
+        field.first != "sequence" && field.first != "quantization_scale" && field.first != "sample_from")
       throw std::invalid_argument("constant domain: unknown key " + field.first);
   ConstantDomain result;
   result.type = parse_type(require_string(require_object_field(definition, "type"), "constant type"));
@@ -130,8 +133,6 @@ ConstantDomain parse_constant_domain(const cli_detail::JsonValue& definition) {
     if (result.minimum_length > result.maximum_length)
       throw std::invalid_argument("sequence length endpoints reversed");
     const auto& element = require_object_field(sequence, "element");
-    if (element.object_v.count("mutation"))
-      throw std::invalid_argument("sequence element domains cannot declare a mutation policy");
     // Check the immediate type before recursion, so invalid nested lists cannot
     // turn a domain definition into unbounded recursive parsing.
     if (parse_type(require_string(require_object_field(element, "type"), "element type")) != expected)
@@ -169,7 +170,7 @@ ConstantDomain parse_constant_domain(const cli_detail::JsonValue& definition) {
     if (!result.integer_range && !result.float_range)
       throw std::invalid_argument("sample_from requires numeric range membership");
     const auto& source = definition.object_v.at("sample_from");
-    if (source.kind != Kind::Object || source.object_v.count("sample_from") || source.object_v.count("mutation"))
+    if (source.kind != Kind::Object || source.object_v.count("sample_from"))
       throw std::invalid_argument("sample_from requires one non-nested numeric domain");
     if (parse_type(require_string(require_object_field(source,"type"),"sample type")) != result.type)
       throw std::invalid_argument("sample_from type differs from membership domain");
@@ -194,51 +195,6 @@ ConstantDomain parse_constant_domain(const cli_detail::JsonValue& definition) {
     }
     if (!subset) throw std::invalid_argument("sample_from is not a proved subset of the membership domain");
     result.sampling = std::make_shared<const ConstantDomain>(std::move(sampling));
-  }
-  if (definition.object_v.count("mutation")) {
-    const auto& mutation = definition.object_v.at("mutation");
-    if (mutation.kind == Kind::Object) {
-      for (const auto& field : mutation.object_v)
-        if (field.first != "kind" && field.first != "range" && field.first != "gpu_grid_steps")
-          throw std::invalid_argument("add mutation: unknown key " + field.first);
-      if (!mutation.object_v.count("kind") || mutation.object_v.at("kind").kind != Kind::String ||
-          mutation.object_v.at("kind").string_v != "add" || !mutation.object_v.count("range"))
-        throw std::invalid_argument("mutation object requires kind add and range");
-      if ((!result.integer_range && !result.float_range) || result.float_quantization_scale != 0)
-        throw std::invalid_argument("add requires numeric range membership without quantization");
-      const auto& bounds = array(mutation.object_v.at("range"));
-      if (bounds.size() != 2) throw std::invalid_argument("add delta range requires two endpoints");
-      if (result.integer_range) {
-        result.delta.integer_minimum = integer(bounds[0]); result.delta.integer_maximum = integer(bounds[1]);
-        if (result.delta.integer_minimum > result.delta.integer_maximum || mutation.object_v.count("gpu_grid_steps"))
-          throw std::invalid_argument("Int add requires ordered endpoints and no Float grid");
-      } else {
-        result.delta.float_minimum = floating(bounds[0]); result.delta.float_maximum = floating(bounds[1]);
-        if (result.delta.float_minimum > result.delta.float_maximum)
-          throw std::invalid_argument("Float add delta endpoints reversed");
-        if (mutation.object_v.count("gpu_grid_steps")) {
-          const auto& steps = mutation.object_v.at("gpu_grid_steps");
-          if (steps.kind != Kind::Number || !std::isfinite(steps.number_v) || steps.number_v < 1 ||
-              steps.number_v > UINT32_MAX || std::floor(steps.number_v) != steps.number_v)
-            throw std::invalid_argument("gpu_grid_steps must be an integer in [1,4294967295]");
-          result.delta.gpu_grid_steps = static_cast<std::uint32_t>(steps.number_v);
-        }
-      }
-      result.mutation = ConstantMutationPolicy::Add;
-      return result;
-    }
-    if (mutation.kind != Kind::String)
-      throw std::invalid_argument("constant mutation policy must be a string or add object");
-    const auto& policy = mutation.string_v;
-    if (policy == "keep") result.mutation = ConstantMutationPolicy::Keep;
-    else if (policy == "flip") {
-      bool yes = false, no = false;
-      if (result.type == RType::Bool) for (const auto& value : result.values) {
-        if (std::get<bool>(value)) yes = true; else no = true;
-      }
-      if (!yes || !no) throw std::invalid_argument("flip requires a Bool domain containing both values");
-      result.mutation = ConstantMutationPolicy::Flip;
-    } else if (policy != "resample") throw std::invalid_argument("unknown constant mutation policy");
   }
   return result;
 }

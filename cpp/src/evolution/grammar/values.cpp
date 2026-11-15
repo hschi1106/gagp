@@ -268,8 +268,6 @@ std::string canonical_constant_encoding(const Value& value) {
 }
 
 Value decode_constant(const cli_detail::JsonValue& value) {
-  if (value.object_v.count("mutation"))
-    throw std::invalid_argument("concrete constant artifacts cannot declare a mutation policy");
   const auto domain = parse_constant_domain(value);
   if (domain.integer_range || domain.values.size() != 1)
     throw std::invalid_argument("grammar artifact constant requires one concrete value");

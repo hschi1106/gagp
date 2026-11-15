@@ -88,10 +88,9 @@ A constant domain has exactly one of `values`, an Int or Float `range`, or a
 - `sample_from` draws new constants from a narrower domain while membership
   accepts the wider one, so evolved values may drift outside it:
   `{"type": "Float", "range": [-100, 100], "sample_from": {"type": "Float", "range": [-8, 8]}}`.
-- `mutation` declares a constant mutation policy: `"resample"` (default),
-  `"keep"`, `"flip"` (Bool), or `{"kind": "add", "range": ["-2", "2"]}`. It is
-  validated and part of the grammar's identity, but the search mutates whole
-  subtrees, so it does not change results.
+- There is no constant mutation policy. Mutation replaces whole subtrees and
+  draws their constants from the domains, so a `mutation` member in a constant
+  domain is a parse error.
 
 The package `configs/grammar/packages/source_literals.json` provides ready-made
 literal nonterminals for every type (`Source.Literal.Int`, ...).

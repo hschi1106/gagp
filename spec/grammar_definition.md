@@ -203,31 +203,11 @@ sequences. GPU preparation retains outer grammar identity while flattening the
 scalar sampler into its cached range/value descriptor. Default domains retain
 their original draws and membership behavior.
 
-A constant domain may declare a constant mutation policy: `mutation: "resample"`
-(the default), `"keep"`, `"flip"`, or an additive object (below). `flip` requires
-a Bool domain containing both `false` and `true`. Unknown policies, non-Bool or
-one-sided `flip`, and `mutation` declarations inside `sample_from` or sequence
-element domains are rejected. Policy is part of grammar identity, and concrete
-constant artifacts cannot carry a mutation policy. The search has no separate
-constant mutation operator. Mutation replaces a whole subtree and draws its
-constants from their domains, so a policy is validated and hashed but changes
-neither generation, membership nor search results.
-
-Numeric range domains also accept a mutation object, for example:
-
-```json
-{"type":"Float","range":[-100,100],
- "sample_from":{"type":"Float","range":[-8,8],"quantization_scale":1000},
- "mutation":{"kind":"add","range":[-1,1],"gpu_grid_steps":65535}}
-```
-
-The mutation object's `range` is an additive delta with the same type as the
-outer domain. Int endpoints are canonical decimal strings and Float endpoints
-are finite JSON numbers, in ascending order. The object requires numeric range
-membership. Finite membership sets and quantized outer Float ranges are
-rejected, while construction may still use a quantized `sample_from` domain.
-Optional `gpu_grid_steps` is Float-only and must be an integer in
-`[1,4294967295]`. The delta range and grid size participate in grammar identity.
+A constant domain has no mutation policy. Mutation replaces a whole subtree and
+draws its constants from their domains, and the search has no separate constant
+mutation operator. A constant domain, a `sample_from` domain, a sequence element
+domain or a concrete constant artifact that carries a `mutation` member is
+rejected with a parse error that names it.
 
 `sequence` contains exactly `length` and `element`. `length` is a pair of inclusive
 integer endpoints in `[0,65536]`, in ascending order. `element` is a constant

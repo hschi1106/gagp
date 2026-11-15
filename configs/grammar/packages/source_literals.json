@@ -22,13 +22,6 @@
                   "-8",
                   "8"
                 ]
-              },
-              "mutation": {
-                "kind": "add",
-                "range": [
-                  "-2",
-                  "2"
-                ]
               }
             }
           }
@@ -57,14 +50,6 @@
                   8
                 ],
                 "quantization_scale": 1000
-              },
-              "mutation": {
-                "kind": "add",
-                "range": [
-                  -1,
-                  1
-                ],
-                "gpu_grid_steps": 65535
               }
             }
           }
@@ -85,8 +70,7 @@
               "values": [
                 false,
                 true
-              ],
-              "mutation": "flip"
+              ]
             }
           }
         }
@@ -141,8 +125,7 @@
                 "8",
                 "9",
                 " "
-              ],
-              "mutation": "keep"
+              ]
             }
           }
         }
@@ -195,8 +178,7 @@
                     "z"
                   ]
                 }
-              },
-              "mutation": "keep"
+              }
             }
           }
         }
@@ -225,8 +207,7 @@
                     "8"
                   ]
                 }
-              },
-              "mutation": "keep"
+              }
             }
           }
         }
@@ -256,8 +237,7 @@
                   ],
                   "quantization_scale": 1000
                 }
-              },
-              "mutation": "keep"
+              }
             }
           }
         }
@@ -319,8 +299,7 @@
                     }
                   }
                 }
-              },
-              "mutation": "keep"
+              }
             }
           }
         }
