@@ -1647,6 +1647,8 @@ bool test_allocation_charge_parity() {
   return true;
 }
 
+BytecodeProgram in_bounded_region(const BytecodeProgram& body);
+
 // Builds range(0, length) `repeats` times and returns 0. With `in_region` the
 // loop is the base body of a one-frame bounded region.
 BytecodeProgram range_loop(int length, int repeats, bool in_region) {
@@ -1659,7 +1661,11 @@ BytecodeProgram range_loop(int length, int repeats, bool in_region) {
                ins_a(Opcode::Store, 1), ins_a(Opcode::Load, 0), ins_a(Opcode::PushConst, 1), ins(Opcode::Add),
                ins_a(Opcode::Store, 0), ins_a(Opcode::Load, 0), ins_a(Opcode::PushConst, 3), ins(Opcode::Lt),
                ins_a(Opcode::JmpIfTrue, 2), ins_a(Opcode::PushConst, 0), ins(Opcode::Return)};
-  if (!in_region) return body;
+  return in_region ? in_bounded_region(body) : body;
+}
+
+// Wraps `body` as the base body of a one-frame bounded region with an Int result.
+BytecodeProgram in_bounded_region(const BytecodeProgram& body) {
   const auto constant = [](Value v) {
     RegionPhase phase;
     phase.program.consts = {v};
@@ -1774,6 +1780,70 @@ bool test_region_physical_exhaustion() {
   return true;
 }
 
+// Under a logical limit the VM routes append and the charged builtins to the
+// out-of-line dispatch. This loop appends 500 times (in place on the GPU) and
+// then reverses the list 40 times (a charged copy), inside and outside a
+// bounded region. The reverses need about 20500 cells, more than the initial
+// arena, so the program replays in ArenaMixed. Charges: appends
+// 500*501/2 = 125250, each reverse 500, 145250 in all. A limit of 145000 is
+// reached at the last reverse, one of 130000 at the tenth. GPU and CPU must
+// score alike in every case.
+BytecodeProgram append_reverse_loop(bool in_region) {
+  const auto call = [](BuiltinId id, int argc) { return ins_ab(Opcode::CallBuiltin, static_cast<int>(id), argc); };
+  BytecodeProgram body;
+  body.n_locals = 3;
+  body.consts = {Value::from_int(0), Value::from_int(1), Value::from_int(500), Value::from_int(40),
+                 payload::make_int_list_value({})};
+  body.code = {ins_a(Opcode::PushConst, 4), ins_a(Opcode::Store, 1),
+               ins_a(Opcode::PushConst, 0), ins_a(Opcode::Store, 0),
+               // 4: xs = append(xs, i) while ++i < 500
+               ins_a(Opcode::Load, 1), ins_a(Opcode::Load, 0), call(BuiltinId::Append, 2), ins_a(Opcode::Store, 1),
+               ins_a(Opcode::Load, 0), ins_a(Opcode::PushConst, 1), ins(Opcode::Add), ins_a(Opcode::Store, 0),
+               ins_a(Opcode::Load, 0), ins_a(Opcode::PushConst, 2), ins(Opcode::Lt), ins_a(Opcode::JmpIfTrue, 4),
+               ins_a(Opcode::PushConst, 0), ins_a(Opcode::Store, 0),
+               // 18: ys = reverse(xs) while ++i < 40
+               ins_a(Opcode::Load, 1), call(BuiltinId::Reverse, 1), ins_a(Opcode::Store, 2),
+               ins_a(Opcode::Load, 0), ins_a(Opcode::PushConst, 1), ins(Opcode::Add), ins_a(Opcode::Store, 0),
+               ins_a(Opcode::Load, 0), ins_a(Opcode::PushConst, 3), ins(Opcode::Lt), ins_a(Opcode::JmpIfTrue, 18),
+               // len(xs) + ys[0] = 500 + 499
+               ins_a(Opcode::Load, 1), call(BuiltinId::Len, 1), ins_a(Opcode::Load, 2), ins_a(Opcode::PushConst, 0),
+               call(BuiltinId::Index, 2), ins(Opcode::Add), ins(Opcode::Return)};
+  body.instruction_fuel.assign(body.code.size(), 1);
+  return in_region ? in_bounded_region(body) : body;
+}
+
+bool test_charged_append_region_replay() {
+  const std::vector<CaseBindings> cases(1);
+  const std::vector<Value> answers{Value::from_int(999)};
+  for (bool in_region : {false, true}) {
+    const std::string where = in_region ? " inside a region" : " outside a region";
+    const auto program = append_reverse_loop(in_region);
+    bool replayed = false;
+    for (unsigned limit : {0u, 1u << 20, 145000u, 130000u}) {
+      FitnessPolicy policy{FitnessMetric::Exact};
+      policy.list_allocation_limit = limit;
+      std::vector<CpuFitnessCaseCounts> counts;
+      const auto cpu = eval_fitness_cpu({program}, cases, answers, 100000, 1000, 32, policy, nullptr, &counts);
+      FitnessSessionGpu session;
+      if (!check(session.init(cases, answers, 100000, 32, 1000, policy).ok, "charged replay session init")) return false;
+      const auto gpu = session.eval_programs({program}, true);
+      const std::string name = where + " (limit=" + std::to_string(limit) + ")";
+      const unsigned errors = limit == 145000u || limit == 130000u ? 1U : 0U;
+      replayed = replayed || gpu.payload_replay_programs > 0;
+      if (!check(gpu.ok && gpu.fitness == cpu && counts[0].errors == errors && counts[0].timeouts == 0 &&
+                 gpu.case_counts[0][1] == errors && (errors || cpu[0] == 0.0),
+                 "charged append and reverse must score alike" + name)) {
+        std::cerr << "cpu=" << cpu[0] << " errors=" << counts[0].errors
+                  << " gpu=" << (gpu.fitness.empty() ? 0.0 : gpu.fitness[0]) << " replayed="
+                  << gpu.payload_replay_programs << " profile=" << gpu.execution_profile << ' ' << gpu.err.message << '\n';
+        return false;
+      }
+    }
+    if (!check(replayed, "the charged loop must reach overflow replay" + where)) return false;
+  }
+  return true;
+}
+
 int main() {
   if(!private_adjacent_checks::run())return 1;
   // Session initialization selects the least-used visible device before raw kernels.
@@ -1783,7 +1853,7 @@ int main() {
       !test_reusable_generic_workspace())return 1;
   if(!test_private_intlist_fitness() || !test_private_tuple_fitness())return 1;
   if(!g3p_builtin_checks::run())return 1;
-  if (!test_dense_case_tiles() || !test_auto_initial_payload_inputs() || !test_sorted_arena_cases() || !test_tiled_initial_payload() || !test_adaptive_combined_reasons() || !test_adaptive_replay() || !test_extended_aliases() || !test_fused_concat() || !test_concat_cache() || !test_extended_payload() || !test_private_list_index() || !test_epoch_list_index() || !test_scalar_region_index_rollback() || !test_payload_replay_fitness() || !test_tail_append_fitness() || !test_allocation_charge_parity() || !test_deep_string_registry_fitness() || !test_region_physical_exhaustion() || !test_global_payload_program_queue() || !test_global_window_aliases() ||
+  if (!test_dense_case_tiles() || !test_auto_initial_payload_inputs() || !test_sorted_arena_cases() || !test_tiled_initial_payload() || !test_adaptive_combined_reasons() || !test_adaptive_replay() || !test_extended_aliases() || !test_fused_concat() || !test_concat_cache() || !test_extended_payload() || !test_private_list_index() || !test_epoch_list_index() || !test_scalar_region_index_rollback() || !test_payload_replay_fitness() || !test_tail_append_fitness() || !test_allocation_charge_parity() || !test_deep_string_registry_fitness() || !test_region_physical_exhaustion() || !test_charged_append_region_replay() || !test_global_payload_program_queue() || !test_global_window_aliases() ||
       !test_subordinate_memo_coordinate_fitness() || !test_larger_memo_fitness()) return 1;
   std::cout << "gagp_test_extended_payload_gpu: OK\n";
 }
