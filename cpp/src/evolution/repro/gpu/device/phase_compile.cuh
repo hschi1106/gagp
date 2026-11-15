@@ -9,7 +9,9 @@ namespace gagp::evo::repro {
 // Statement kinds (whole-program phases only): Program and Block sequence
 // their children, Nil is an empty block, Assign/ForRange name a variable by
 // operand (>=0 grammar local, <0 preset input slot -1-operand), Var reads a
-// grammar local. If also lowers if_stmt with statement branches.
+// grammar local. If also lowers if_stmt with statement branches. While
+// (bound, condition, body) is a while_stmt: a ForRange without an index that
+// also leaves when its condition is false.
 // Let (value, body) binds lexical index `operand` for its body; Bound reads a
 // lexical index: the innermost active Let binder, otherwise binder local
 // `operand` of a region phase.
@@ -18,7 +20,7 @@ namespace gagp::evo::repro {
 // program whose locals start with the phase bindings (see PhaseRegionInfo).
 // Traverse (source, start, [begin, end,] initial, body) is the native
 // traversal primitive of region table entry `operand` (see PhaseRegionInfo).
-enum class PhaseTreeKind : int { Constant, Local, Operation, If, And, Or, Program, Block, Nil, Assign, Return, ForRange, Var, Let, Bound, Region, Traverse };
+enum class PhaseTreeKind : int { Constant, Local, Operation, If, And, Or, Program, Block, Nil, Assign, Return, ForRange, Var, Let, Bound, Region, Traverse, While };
 // Completion tag of a statement; never a runtime value tag.
 constexpr ValueTag kPhaseStatement = static_cast<ValueTag>(0xF0);
 constexpr int kPhaseNamedLocals = 16;
@@ -183,7 +185,8 @@ __host__ __device__ inline int phase_region_count(const PhaseTreeNode* nodes, in
 
 // Native definite assignment (ast_type_verify): a grammar local is readable
 // after an Assign, inside a ForRange body naming it, and after an if_stmt only
-// when both branches assigned it; loop bodies never define it afterwards.
+// when both branches assigned it; loop bodies (ForRange, While) never define
+// it afterwards.
 // Inputs are always defined. Variation rejects children that fail this check.
 __host__ __device__ inline bool phase_locals_defined(const PhaseTreeNode* nodes, int count) {
   struct Frame { int index, seen; unsigned saved, branch; };
@@ -199,6 +202,7 @@ __host__ __device__ inline bool phase_locals_defined(const PhaseTreeNode* nodes,
     while (depth) {
       auto& frame=frames[depth-1]; const auto owner=nodes[frame.index]; ++frame.seen;
       if (owner.kind==PhaseTreeKind::ForRange && frame.seen==1) { frame.saved=mask; mask|=bit(owner.operand); }
+      else if (owner.kind==PhaseTreeKind::While && frame.seen==1) frame.saved=mask;
       else if (owner.kind==PhaseTreeKind::If && owner.type==kPhaseStatement) {
         if (frame.seen==1) frame.saved=mask;
         else if (frame.seen==2) { frame.branch=mask; mask=frame.saved; }
@@ -206,7 +210,7 @@ __host__ __device__ inline bool phase_locals_defined(const PhaseTreeNode* nodes,
       }
       if (frame.seen<owner.arity) break;
       if (owner.kind==PhaseTreeKind::Assign) mask|=bit(owner.operand);
-      else if (owner.kind==PhaseTreeKind::ForRange) mask=frame.saved;
+      else if (owner.kind==PhaseTreeKind::ForRange || owner.kind==PhaseTreeKind::While) mask=frame.saved;
       --depth;
     }
   }
@@ -258,7 +262,8 @@ __host__ __device__ inline PhaseCompileResult compile_phase_tree(
   bool have_value=false,typed_views=true,private_intlists=true,general=false;
   // Statement lowering state, mirroring the native compiler: preset locals
   // first, grammar locals on first use, loop temporaries recycled LIFO once
-  // their for_range finishes. Untouched by expression-only phases.
+  // their for_range or while_stmt finishes. Untouched by expression-only
+  // phases.
   int total_locals=local_count, live_count=0, free_count=0, loop_depth=0;
   unsigned named_mask=0; std::int8_t named[kPhaseNamedLocals], live[64], freed[64];
   struct Loop { int bound, counter, head, end_jump, one, live_begin; };
@@ -675,9 +680,11 @@ __host__ __device__ inline PhaseCompileResult compile_phase_tree(
           if (node.arity!=1) return out.result; typed_views=private_intlists=false;
         } else if (node.kind==PhaseTreeKind::Block || node.kind==PhaseTreeKind::ForRange || node.kind==PhaseTreeKind::Let) {
           if (node.arity!=2) return out.result; typed_views=private_intlists=false;
+        } else if (node.kind==PhaseTreeKind::While) {
+          if (node.arity!=3) return out.result; typed_views=private_intlists=false;
         } else if (node.kind!=PhaseTreeKind::Operation) { out.result.status=PhaseCompileStatus::Unsupported; return out.result; }
         if (depth==64) { out.result.status=PhaseCompileStatus::Capacity; return out.result; }
-        if (node.kind==PhaseTreeKind::ForRange) {
+        if (node.kind==PhaseTreeKind::ForRange || node.kind==PhaseTreeKind::While) {
           // The bound temporary precedes the bound expression's own locals.
           if (loop_depth==kPhaseLoops) { out.result.status=PhaseCompileStatus::Capacity; return out.result; }
           auto& loop=loops[loop_depth++]; loop.live_begin=live_count;
@@ -779,9 +786,11 @@ __host__ __device__ inline PhaseCompileResult compile_phase_tree(
         if (!fact.positive_then) facts[fact.source].positive=true;
       }
     }
-    if (node.kind==PhaseTreeKind::ForRange && frame.seen==1) {
-      // Native for_range: validate the stored bound (a non-Int or negative
-      // bound reaches Neg(true), a runtime error), then count from zero.
+    const bool counted=node.kind==PhaseTreeKind::ForRange || node.kind==PhaseTreeKind::While;
+    if (counted && frame.seen==1) {
+      // Native for_range and while_stmt: validate the stored bound (a non-Int
+      // or negative bound reaches Neg(true), a runtime error), then count
+      // from zero.
       using gpu_detail::DINSTR_HAS_A; using gpu_detail::DINSTR_HAS_B;
       auto& loop=loops[loop_depth-1];
       if (completed==kPhaseStatement) return out.result;
@@ -803,7 +812,8 @@ __host__ __device__ inline PhaseCompileResult compile_phase_tree(
       out.code[valid].a=out.result.code_count; out.stack=frame.base_stack;
       const int zero=out.add(Value::from_int(0)); loop.one=out.add(Value::from_int(1));
       if (zero<0 || loop.one<0) return out.result;
-      loop.counter=temporary(); const int user=variable_slot(node.operand);
+      loop.counter=temporary();
+      const int user=node.kind==PhaseTreeKind::ForRange ? variable_slot(node.operand) : 0;
       if (loop.counter<0 || user<0) return out.result;
       if (!out.emit(Opcode::PushConst,1,zero,0,DINSTR_HAS_A)) return out.result;
       out.grow(1);
@@ -815,9 +825,19 @@ __host__ __device__ inline PhaseCompileResult compile_phase_tree(
       loop.end_jump=out.result.code_count;
       if (!out.emit(Opcode::JmpIfFalse,1,0,0,DINSTR_HAS_A)) return out.result;
       out.stack=frame.base_stack;
-      if (!out.emit(Opcode::Load,1,loop.counter,0,DINSTR_HAS_A)) return out.result;
-      out.grow(1);
-      if (!out.emit(Opcode::Store,1,user,0,DINSTR_HAS_A)) return out.result;
+      if (node.kind==PhaseTreeKind::ForRange) {
+        if (!out.emit(Opcode::Load,1,loop.counter,0,DINSTR_HAS_A)) return out.result;
+        out.grow(1);
+        if (!out.emit(Opcode::Store,1,user,0,DINSTR_HAS_A)) return out.result;
+        out.stack=frame.base_stack;
+      }
+    }
+    if (node.kind==PhaseTreeKind::While && frame.seen==2) {
+      // The condition, evaluated before every iteration, leaves the loop
+      // through the same exit as the bound test.
+      if (completed!=ValueTag::Bool) return out.result;
+      frame.first_jump=out.result.code_count;
+      if (!out.emit(Opcode::JmpIfFalse,1,0,0,gpu_detail::DINSTR_HAS_A)) return out.result;
       out.stack=frame.base_stack;
     }
     if (node.kind==PhaseTreeKind::Let && frame.seen==1) {
@@ -860,7 +880,7 @@ __host__ __device__ inline PhaseCompileResult compile_phase_tree(
         if (!out.emit(Opcode::Store,node.fuel,slot,0,gpu_detail::DINSTR_HAS_A)) return out.result;
       } else if (!out.emit(Opcode::Return,node.fuel)) return out.result;
       out.stack=frame.base_stack; completed=kPhaseStatement;
-    } else if (node.kind==PhaseTreeKind::ForRange) {
+    } else if (counted) {
       if (completed!=kPhaseStatement) return out.result;
       const auto loop=loops[--loop_depth];
       using gpu_detail::DINSTR_HAS_A;
@@ -869,6 +889,7 @@ __host__ __device__ inline PhaseCompileResult compile_phase_tree(
       if (!out.emit(Opcode::Add,1) || !out.emit(Opcode::Store,1,loop.counter,0,DINSTR_HAS_A) ||
           !out.emit(Opcode::Jmp,1,loop.head,0,DINSTR_HAS_A)) return out.result;
       out.code[loop.end_jump].a=out.result.code_count; out.stack=frame.base_stack;
+      if (node.kind==PhaseTreeKind::While) out.code[frame.first_jump].a=out.result.code_count;
       while (live_count>loop.live_begin) freed[free_count++]=live[--live_count];
     } else if (node.kind==PhaseTreeKind::Let) {
       if (completed==kPhaseStatement || (node.type!=ValueTag::Invalid && node.type!=completed)) return out.result;
