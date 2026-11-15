@@ -429,6 +429,11 @@ target_link_libraries(gagp_test_payload_staging PRIVATE gagp_cpu)
 add_test(NAME gagp_test_payload_staging COMMAND gagp_test_payload_staging)
 set_tests_properties(gagp_test_payload_staging PROPERTIES LABELS "unit;contract")
 
+add_executable(gagp_test_g3p_builtins tests/runtime/test_g3p_builtins.cpp)
+target_link_libraries(gagp_test_g3p_builtins PRIVATE gagp_cpu)
+add_test(NAME gagp_test_g3p_builtins COMMAND gagp_test_g3p_builtins)
+set_tests_properties(gagp_test_g3p_builtins PROPERTIES LABELS "unit;contract")
+
 add_executable(gagp_test_payload_registry
   tests/runtime/test_payload_registry.cpp
 )
