@@ -15,7 +15,7 @@ Checked `grammar-definition-v2` files. The format is specified in
   programs, used by tests.
 - `benchmarks/simple_exp.json`: the grammar of `data/fixtures/simple_exp_1024.json`.
 
-Package names carry no meaning to the engine; a grammar uses a package only
+Package names carry no meaning to the engine. A grammar uses a package only
 through ordinary imports and references. Imports are relative to the importing
 file, and a grammar's identity is a hash of its resolved content, so renaming
 or moving files does not change it.

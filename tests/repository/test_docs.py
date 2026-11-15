@@ -14,6 +14,9 @@ LAYOUT_PATH = re.compile(r"^\| `([^`]+)` \|", re.MULTILINE)
 JSON_FENCE = re.compile(r"^```json\s*\n(.*?)^```", re.MULTILINE | re.DOTALL)
 OPTION_ROW = re.compile(r"^\| `(--[a-z-]+)", re.MULTILINE)
 ENV_VAR = re.compile(r"\bGAGP_[A-Z0-9_]+\b")
+HEADING = re.compile(r"^(#{1,6}) ", re.MULTILINE)
+CODE_FENCE = re.compile(r"^```[^\n]*\n.*?^```", re.MULTILINE | re.DOTALL)
+SIMPLIFIED = "这个们说么还没对为时过来开关发现应该经让从与单运种项错误选择实际线网络测试数据库"
 
 
 def maintained_markdown() -> list[Path]:
@@ -101,6 +104,26 @@ class TestDocumentation(unittest.TestCase):
                     for document in maintained_markdown() if document.name != "VERSION.md"
                     for match in removed.findall(document.read_text(encoding="utf-8"))]
         self.assertEqual([], failures)
+
+    def test_readmes_have_the_same_structure(self) -> None:
+        english = (ROOT / "README.md").read_text(encoding="utf-8")
+        chinese = (ROOT / "README.zh-TW.md").read_text(encoding="utf-8")
+        self.assertEqual(HEADING.findall(english), HEADING.findall(chinese), "heading levels differ")
+        self.assertEqual(CODE_FENCE.findall(english), CODE_FENCE.findall(chinese),
+                         "code blocks and commands differ")
+        links = lambda text: sorted(target for target in MARKDOWN_LINK.findall(text)
+                                    if not target.endswith(("README.md", "README.zh-TW.md"))
+                                    or "/" in target)
+        self.assertEqual(links(english), links(chinese), "links differ")
+        self.assertEqual([], [char for char in SIMPLIFIED if char in chinese],
+                         "Simplified Chinese characters in README.zh-TW.md")
+
+    def test_readme_follows_the_four_claims(self) -> None:
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        claims = re.findall(r"^### (\d)\. ", readme, re.MULTILINE)
+        self.assertEqual(["1", "2", "3", "4"], claims)
+        self.assertIn("\n## Limits\n", readme)
+        self.assertIn("spec/search_config.md#resident-capacities", section(readme, "## Limits"))
 
     def test_identity(self) -> None:
         readme = (ROOT / "README.md").read_text(encoding="utf-8")

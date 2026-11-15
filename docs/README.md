@@ -1,7 +1,7 @@
 # Documentation
 
 Start with the [README](../README.md). Formats and semantics are specified in
-[spec/](../spec/README.md); the documents here explain how to use GAGP and how
+[spec/](../spec/README.md). The documents here explain how to use GAGP and how
 it works, and link to the specification instead of restating it.
 
 ## Guides
@@ -24,7 +24,7 @@ it works, and link to the specification instead of restating it.
 
 | Document | Explains |
 | --- | --- |
-| [Research mainline](design/research-mainline.md) | The research claim, what "exact" means, measured results, retired designs |
+| [Research mainline](design/research-mainline.md) | The four claims, what "exact" means, measured results, retired designs |
 | [Architecture](design/architecture.md) | Components, the flow of one run, formats, invariants |
 | [GPU reproduction](design/gpu-reproduction.md) | The resident GPU engine and its CPU reference: layouts, capacities, operators, schedules |
 | [Payload values](design/payload.md) | How strings and lists are stored on the host and the GPU |

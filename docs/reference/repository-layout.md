@@ -5,13 +5,14 @@ column exists.
 
 | Path | Contents |
 | --- | --- |
-| `README.md` | What GAGP is, results, build and quick start |
+| `README.md` | What GAGP is, the four claims with the commands that reproduce them, the limits, build and quick start |
 | `README.zh-TW.md` | The same in Traditional Chinese |
 | `VERSION.md` | Releases and compatibility |
 | `AGENTS.md` | Rules for coding agents and contributors |
 | `.agents/skills/gagp-navigation/SKILL.md` | Where to find the code, contract and tests of a feature |
 | `examples/` | Complete runnable tasks |
 | `benchmarks/` | The `asgp30` and `psb1_g3p` benchmark suites and their runner, `run.py` |
+| `benchmarks/run.py` | Runs a suite on either engine and writes the report |
 | `benchmarks/psb1_g3p/build.py` | Generator of the `psb1_g3p` grammars, tasks and case files |
 | `configs/search/default.json` | The default search configuration |
 | `configs/grammar/` | Grammar packages and example grammars |
