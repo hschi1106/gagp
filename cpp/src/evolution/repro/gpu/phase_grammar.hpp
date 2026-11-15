@@ -6,6 +6,7 @@
 #include <array>
 #include <cmath>
 #include <functional>
+#include <limits>
 #include <stdexcept>
 #include <vector>
 #include "gagp/core/region_plan.hpp"
@@ -59,6 +60,12 @@ inline bool phase_statement_category(NodeCategory category) {
   return category==NodeCategory::Program || category==NodeCategory::Block ||
       category==NodeCategory::Statement;
 }
+// A positive weight stays positive: scaling that underflows to zero keeps the
+// smallest positive double instead, so the alternative stays drawable when it
+// is the only feasible one. Weights that do not underflow are unchanged.
+inline double positive_phase_weight(double weight) {
+  return weight>0?weight:std::numeric_limits<double>::denorm_min();
+}
 // Prove that an alternative with maximum weight is feasible whenever any
 // alternative is feasible at the same depth/capacity. Only then is the dynamic
 // normalizing maximum invariant; division and the first scan can move to import.
@@ -78,7 +85,7 @@ inline void normalize_static_phase_weights(const HostPhaseGrammar& host,
       proven=cheapest==max_weight_cheapest;
     }
     if(!proven)continue;
-    for(int i=0;i<nt.production_count;++i)productions.at(nt.production_offset+i).weight/=maximum;
+    for(int i=0;i<nt.production_count;++i){auto& w=productions.at(nt.production_offset+i).weight;w=positive_phase_weight(w/maximum);}
     nt.normalized_weights=true;
   }
 }
@@ -488,12 +495,16 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
       std::vector<PhaseProduction> result;on_path[id]=1;
       // Weights are finite, but a sum of them can overflow. Both fallbacks
       // run only on overflow and scale by powers of two, which keeps every
-      // ratio exact, so finite sums keep their weights bit for bit.
+      // ratio exact, so finite sums keep their weights bit for bit. A weight
+      // the scaling would underflow to zero keeps the smallest positive value.
       double list_scale=1;  // halved on each merge overflow, for every weight
       const auto add=[&](int expression,double weight) {
-        weight*=list_scale;
+        weight=positive_phase_weight(weight*list_scale);
         for(auto& p:result)if(p.expression==expression) {
-          if(!std::isfinite(p.weight+weight)){for(auto& q:result)q.weight*=0.5;weight*=0.5;list_scale*=0.5;}
+          if(!std::isfinite(p.weight+weight)) {
+            for(auto& q:result)q.weight=positive_phase_weight(q.weight*0.5);
+            weight=positive_phase_weight(weight*0.5);list_scale*=0.5;
+          }
           p.weight+=weight;return;
         }
         if(++expanded>65536)fail("unit production inlining exceeds the resident capacity of 65536 alternatives");
@@ -511,7 +522,7 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
           int exponent=0;std::frexp(maximum,&exponent);scale=std::ldexp(1.0,-exponent);
           total=0;for(const auto& q:inner)total+=q.weight*scale;
         }
-        for(const auto& q:inner)add(q.expression,p.weight*(q.weight*scale/total));
+        for(const auto& q:inner)add(q.expression,positive_phase_weight(p.weight*(q.weight*scale/total)));
       }
       on_path[id]=0;return result;
     };

@@ -131,7 +131,10 @@ These rules define `crossover`, `sites`, `limits` and `ranking`.
   alternative carrying both weights. When `W`, or the sum of the two weights
   of such an expression, would exceed the largest finite double, the weights
   being summed are first scaled by the same power of two, which keeps every
-  ratio, so no alternative loses its weight. Finite sums are not scaled. One
+  ratio, so no alternative loses its weight. A positive weight that this
+  scaling (or the division by `W`) would round to zero keeps the smallest
+  positive double, so an alternative never becomes undrawable. Finite sums are
+  not scaled. One
   draw then equals choosing through the
   chain one reference at a time whenever every alternative fits the budget. An
   inlined chain is one grammar invocation: its root node carries one site, of

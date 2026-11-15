@@ -378,6 +378,26 @@ void check_unit_weight_overflow() {
  require_same(traces[0],traces[1],"unit weight overflow");
  std::cout<<"phase_unit_weights.json: overflowing unit weights keep every alternative on CPU and GPU\n";
 }
+// A literal weighted 5e-324 beside two unit chains weighted 1.7e308: the
+// merge overflow halves every weight, which must not round the literal to
+// zero. With max_nodes 5 the literal is the only feasible alternative of a
+// small mutation site, so a zero weight stopped mutation (variation error 7).
+void check_unit_weight_underflow() {
+ const auto compiled=std::make_shared<const grammar::CompiledGrammar>(grammar::compile_grammar(
+     grammar::load_definition(GAGP_REPOSITORY_ROOT "/cpp/tests/fixtures/phase_unit_scale_underflow.json")));
+ const auto cases=cli_detail::decode_fitness_cases_json(cli_detail::JsonParser(cases_json(*compiled),{true,64}).parse());
+ EvolutionConfig cfg;cfg.population_size=16;cfg.generations=4;cfg.seed=0;cfg.elite_count=0;cfg.mutation_rate=1;
+ cfg.compiled_grammar=compiled;cfg.fuel=compiled->execution_limits().fuel;cfg.penalty=1000;cfg.gpu_blocksize=32;
+ std::vector<Trace> traces;
+ for(const bool gpu:{false,true}) {
+  auto run=cfg;run.eval_engine=gpu?EvalEngine::GPU:EvalEngine::CPU;
+  std::string error;
+  try{traces.push_back(trace(evolve_population(cases,run)));}catch(const std::exception& e){error=e.what();}
+  require(error.empty(),std::string("unit weight underflow on ")+(gpu?"GPU: ":"CPU: ")+error);
+ }
+ require_same(traces[0],traces[1],"unit weight underflow");
+ std::cout<<"phase_unit_scale_underflow.json: a positive weight stays positive after scaling, identical on CPU and GPU\n";
+}
 // Generated initial members over a per-program capacity of the genotype
 // (bounded regions per program, nodes of a phase row) are redrawn, and only
 // those: a member admissible at its first draw is the plain draw seed + i.
@@ -623,6 +643,7 @@ int main() { try {
  // the body changes, and nesting with for_range and if_stmt.
  check("cpp/tests/fixtures/phase_while_statements.json",Fixture::WhileStatements);
  check_unit_weight_overflow();
+ check_unit_weight_underflow();
  check_initial_capacity();
  check_shared_hole_records();
  check_unused_local();
