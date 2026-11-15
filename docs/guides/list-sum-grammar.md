@@ -29,7 +29,7 @@ def sum_list(xs):
     return acc
 ```
 
-This code explains the behavior; it is not the content of the grammar file.
+This code explains the behavior. It is not the content of the grammar file.
 
 | Name | Meaning | Example for `[2, 5, 8]` |
 | --- | --- | --- |
@@ -54,7 +54,7 @@ Tutorial.Step
 
 ## 2. The complete grammar
 
-The following is a complete JSON grammar. Read it once for its overall structure; the next sections explain each part.
+The following is a complete JSON grammar. Read it once for its overall structure. The next sections explain each part.
 
 ```json
 {
@@ -228,7 +228,7 @@ At this point, we have not entered a traversal, so there is no current `element`
 
 **`scope: []` means there are no additional requirements for enclosing bindings. It does not mean that inputs are unavailable.**
 
-Next comes the list of choices. This is a structural sketch; the ellipsis is not valid JSON:
+Next comes the list of choices. This is a structural sketch. The ellipsis is not valid JSON:
 
 ```text
 "alternatives": [
@@ -305,7 +305,7 @@ A constant is written as:
 }
 ```
 
-This allows only the integer constant `0` at that position. The format represents the integer constant using the string `"0"`; `"type": "Int"` specifies its type.
+This allows only the integer constant `0` at that position. The format represents the integer constant using the string `"0"`. `"type": "Int"` specifies its type.
 
 ## 6. bind: name the three values supplied at each step
 
@@ -433,7 +433,7 @@ Together, this expresses:
 acc + element
 ```
 
-`traverse` uses the result as the next step's accumulator. The addition computes the value; `traverse` carries that value into the next step.
+`traverse` uses the result as the next step's accumulator. The addition computes the value. `traverse` carries that value into the next step.
 
 | Step | Incoming `acc` | `element` | Calculation | Next accumulator |
 | --- | ---: | ---: | --- | ---: |
@@ -506,7 +506,7 @@ Why do the last two produce 0 and 8?
 - `keep_acc`: the accumulator starts at 0, and every step returns its existing value. It therefore stays at 0.
 - `take_element`: each step returns the current element. The accumulator becomes 2, then 5, then 8. The last value is returned.
 
-All three weights are `1`. When all three alternatives are feasible under the applicable limits, they have equal chances of being sampled. Weight controls sampling during generation; fitness evaluates how well the generated program performs after execution.
+All three weights are `1`. When all three alternatives are feasible under the applicable limits, they have equal chances of being sampled. Weight controls sampling during generation. Fitness evaluates how well the generated program performs after execution.
 
 **The alternative is chosen when the program is generated.** If an individual uses `add_element`, every step of its traversal uses `acc + element`. It does not draw a new grammar alternative every time it reads an element.
 

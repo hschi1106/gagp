@@ -2,7 +2,7 @@
 
 GAGP is grammar-guided genetic programming whose whole search loop runs on the
 GPU, with a CPU reference engine that produces identical results. Start with
-[README.md](README.md); the documentation index is [docs/README.md](docs/README.md).
+[README.md](README.md). The documentation index is [docs/README.md](docs/README.md).
 
 ## Layout
 
@@ -36,11 +36,11 @@ timing. Details are in [docs/guides/development.md](docs/guides/development.md).
 
 - **One program.** The only executable is `gagp` (`run`, `eval`, `grammar`).
   New options belong in `cpp/src/cli/run.cpp` and in the `gagp run` table of
-  `docs/reference/cli.md`; the repository tests compare the two.
+  `docs/reference/cli.md`. The repository tests compare the two.
 - **Search knobs live in the search configuration.** Anything that changes
   which programs are explored is a member of `gagp-search-config-v1`
   (`spec/search_config.md`), implemented identically by both engines. Do not
-  add environment switches; the only environment variables are
+  add environment switches. The only environment variables are
   `GAGP_CUDA_DEVICE`, `GAGP_GPU_DIAGNOSTICS` and `GAGP_SEARCH_TRACE`.
 - **Exactness.** The GPU engine and the CPU reference engine must publish
   identical populations, fitness values and champions. An engine change or
@@ -59,14 +59,14 @@ timing. Details are in [docs/guides/development.md](docs/guides/development.md).
 
 ## GPU
 
-- GPU paths pick the least used visible device; `GAGP_CUDA_DEVICE=N` forces one.
-- Profile with `nsys` only; do not use `ncu` in this environment.
+- GPU paths pick the least used visible device. `GAGP_CUDA_DEVICE=N` forces one.
+- Profile with `nsys` only. Do not use `ncu` in this environment.
 - A skipped or unconfigured GPU test is not a pass.
 
 ## Style and commits
 
-- C++17 and CUDA, matching the style of neighboring files; Python with
-  4-space indentation and type hints; `snake_case` functions, `PascalCase`
+- C++17 and CUDA, matching the style of neighboring files. Python with
+  4-space indentation and type hints. `snake_case` functions, `PascalCase`
   types, `UPPER_CASE` constants. Python tests use `unittest`.
 - Commits: `<type>: <summary>` with `feat`, `fix`, `perf`, `refactor`, `docs`,
   `test` or `chore`. Do not commit builds, run outputs (`logs/`, `runs/`) or datasets.

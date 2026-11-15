@@ -174,8 +174,9 @@ Both owners implement both schedules and publish identical results.
 mutable grammar invocations within a phase; physical node and depth budgets
 remain separate checks. Cold import checks every initial member, crossover
 checks the spliced site's depth, and mutation samples from a joint
-node/depth/invocation-depth feasibility table. The engine profile reported by
-the run is `resident-gpu-v4-site-depthN`.
+node/depth/invocation-depth feasibility table. The GPU owner names its profile
+`resident-gpu-v4-site-depthN` (`EvolutionResult::reproduction_profile`, not a
+`result.json` member).
 
 `ranking.tie_break: grammar_sites` breaks fitness and wrong-count ties by the
 number of mutable grammar invocations instead of AST nodes. It changes

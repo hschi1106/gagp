@@ -16,7 +16,7 @@ cmake --build cpp/build -j --target gagp
 ```
 
 This produces `cpp/build/gagp`. CMake builds for the GPUs that `nvidia-smi`
-reports; add `-DCMAKE_CUDA_ARCHITECTURES=86` (or your GPU's compute capability)
+reports. Add `-DCMAKE_CUDA_ARCHITECTURES=86` (or your GPU's compute capability)
 to choose explicitly, and `-DCMAKE_CUDA_COMPILER=/usr/local/cuda/bin/nvcc` if
 `nvcc` is not on `PATH`.
 
@@ -114,7 +114,7 @@ cpp/build/gagp run my-task/task.json --init runs/a/population.json --out runs/b
 cpp/build/gagp run my-task/task.json --search my-search.json
 ```
 
-A search configuration only lists what it changes; for example
+A search configuration only lists what it changes. For example
 `{"format": "gagp-search-config-v1", "mutation": {"probability": 0.5}}`. All
 options and settings are in the [command reference](../reference/cli.md).
 
@@ -123,13 +123,13 @@ options and settings are in the [command reference](../reference/cli.md).
 | Symptom | What to do |
 | --- | --- |
 | CMake cannot find the CUDA compiler | Pass `-DCMAKE_CUDA_COMPILER=/path/to/nvcc`, or build without CUDA (`-DGAGP_ENABLE_CUDA=OFF`) |
-| `gpu evaluation requested but CUDA is unavailable in this build` | The build has no CUDA; use `--engine cpu` |
+| `gpu evaluation requested but CUDA is unavailable in this build` | The build has no CUDA. Use `--engine cpu` |
 | `no kernel image` or `invalid device function` | Rebuild with `-DCMAKE_CUDA_ARCHITECTURES=` set to your GPU (86 for RTX 3090, 89 for RTX 4090) |
 | The build is killed | Use fewer build jobs, for example `-j 2` |
-| A grammar is rejected | Run `gagp grammar validate` and follow the reported field; compare with the examples in `configs/grammar/examples/` |
+| A grammar is rejected | Run `gagp grammar validate` and follow the reported field. Compare with the examples in `configs/grammar/examples/` |
 | Case inputs do not match the grammar | Input names and types in the cases must equal the grammar's `inputs`, and the expected type its entry type |
-| The run fails with `resident engine cannot admit this grammar` | The grammar exceeds the resident engine's capacity. Tighten its `search_limits` ([details](grammar-authoring.md#making-the-gpu-engine-take-the-grammar)) |
-| A specific GPU should be used | Set `GAGP_CUDA_DEVICE=N`; by default the least used GPU is chosen |
+| The run exits with status 2 and `resident engine cannot admit this grammar` | The message names a capacity the grammar exceeds or a construct the engine does not hold. Tighten the `search_limits` or avoid the construct ([details](grammar-authoring.md#making-the-gpu-engine-take-the-grammar), [limits](../../README.md#limits)) |
+| A specific GPU should be used | Set `GAGP_CUDA_DEVICE=N`. By default the least used GPU is chosen |
 
 A short search that does not solve a problem is not an error: try a larger
 population, more generations, other seeds, or a grammar with better building
