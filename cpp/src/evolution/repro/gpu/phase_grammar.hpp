@@ -732,6 +732,36 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
     };
     for(std::size_t i=0;i<out.expressions.size();++i)if(i==std::size_t(out.root_expression) || seen_expr[i])
       for(unsigned d=0;d<=max_depth;++d)for(unsigned l=0;l<=site_depth;++l)cost(i,d,l);
+    // No program within the site depth is a configuration error, decided
+    // here on both owners before any generation or import. The message names
+    // the fewest nested invocations a derivation within the physical depth
+    // needs: a reference adds one to its cheapest production, a node takes
+    // the most of its children.
+    if(out.minimum[(std::size_t(out.root_expression)*out.depth_count+max_depth)*out.logical_depth_count+site_depth]==kNoGrammarId) {
+      constexpr unsigned none=~0U;
+      std::vector<unsigned> fewest(out.expressions.size()*out.depth_count,none);std::vector<char> known(fewest.size());
+      std::function<unsigned(int,int)> nested=[&](int id,int d)->unsigned {
+        const auto key=std::size_t(id)*out.depth_count+d;
+        if(known[key])return fewest[key];
+        known[key]=true;const auto& e=out.expressions[id];unsigned r=none;
+        if(e.kind==PhaseExpressionKind::Alias)r=nested(e.children[0],d);
+        else if(e.kind==PhaseExpressionKind::Reference) {
+          const auto& nt=out.nonterminals[e.target];
+          for(int i=0;i<nt.production_count;++i) {
+            const unsigned child=nested(out.productions[nt.production_offset+i].expression,d);
+            if(child!=none)r=std::min(r,child+1);
+          }
+        } else if(d>0) {
+          r=0;
+          for(int i=0;i<e.node.arity && r!=none;++i){const unsigned child=nested(e.children[i],d-1);r=child==none?none:std::max(r,child);}
+        }
+        return fewest[key]=r;
+      };
+      const unsigned needed=nested(out.root_expression,max_depth);
+      fail("no program within limits.site_depth "+std::to_string(site_depth)+(needed!=none?
+          ": every derivation nests at least "+std::to_string(needed)+" grammar invocations on one path":std::string())+
+          " (limits.site_depth 0 disables the cap)");
+    }
   }
   return out;
 }

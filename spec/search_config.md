@@ -106,7 +106,14 @@ These rules define `crossover`, `sites`, `limits` and `ranking`.
   `2 + i mod (site_depth - 1)` (or `site_depth` when it is 1). A depth that
   cannot derive the phase is retried with fresh draws and then raised by one,
   up to `site_depth`. Phases are filled in order, each leaving room for the
-  minimum size of the later phases within the grammar's `max_nodes`.
+  minimum size of the later phases within the grammar's `max_nodes`. The
+  member is then checked as the population import reads it. An ambiguous
+  grammar derives some programs two ways, and the import reconstructs the
+  first derivation, which may nest more grammar invocations than the
+  generated one. A member whose reconstructed derivation exceeds
+  `site_depth` is generated again with every seed salted by the draw number
+  (256 draws at most, then the run is rejected naming the depth). A member
+  that fits at its first draw consumes no further draw.
 - A run with `limits.site_depth` 0 and no initial population generates member
   `i` from `seed + i` ([population initialization](grammar_definition.md)).
   A member over a per-program resident capacity is redrawn from a seed derived
@@ -174,7 +181,11 @@ the genotype (for example lowering capacity within the depth budget), or when
 it uses one of the two [language restrictions](#language-restrictions). A
 traversal or `let` inside a bounded region phase is held: the phase lowers as
 a program of its own whose first locals are its bindings. A genome is rejected when it does not share the population's fixed
-skeleton. Rejection is an error raised before the first generation: the run
+skeleton. With `limits.site_depth` above 0, a grammar with no program whose
+derivation nests at most `site_depth` grammar invocations on one path is
+rejected, and the message names the fewest invocations a derivation needs
+and that 0 disables the cap. A supplied initial member whose reconstructed
+derivation exceeds `site_depth` is rejected, naming its depth. Rejection is an error raised before the first generation: the run
 stops with a diagnostic that begins with
 `resident engine cannot admit this grammar or initial population:` and names
 the limit or construct and the offending value. `gagp run` then exits with

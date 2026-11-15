@@ -495,6 +495,59 @@ void check_loop_locals() {
  }
  std::cout<<"phase_loop_locals: a for_range counts its bound and counter, 64 locals identical on CPU and GPU, 68 rejected on both\n";
 }
+// limits.site_depth. phase_site_ambiguous derives neg(x) directly (one
+// invocation) and through B (two), and the importer reconstructs the second.
+// At site depth 1 a generated neg(x) is redrawn, identically on both owners,
+// and a supplied neg(x) is rejected naming the depth. phase_site_depth_9
+// nests 9 invocations in its only program: admitted at site depth 9, and at
+// 8 rejected at admission on both owners, naming the depth it needs.
+void check_site_depth() {
+ const auto load=[](const char* fixture){return std::make_shared<const grammar::CompiledGrammar>(grammar::compile_grammar(
+     grammar::load_definition(std::string(GAGP_REPOSITORY_ROOT "/cpp/tests/fixtures/")+fixture)));};
+ const auto configure=[](const std::shared_ptr<const grammar::CompiledGrammar>& g,int site_depth,bool gpu) {
+  EvolutionConfig cfg;cfg.population_size=16;cfg.generations=2;cfg.seed=0;cfg.elite_count=1;cfg.mutation_rate=0.5;
+  cfg.compiled_grammar=g;cfg.fuel=g->execution_limits().fuel;cfg.penalty=1000;cfg.gpu_blocksize=32;
+  cfg.gpu_phase_site_depth=site_depth;cfg.eval_engine=gpu?EvalEngine::GPU:EvalEngine::CPU;
+  return cfg;
+ };
+ const auto run=[](const std::vector<EvalCase>& cases,const EvolutionConfig& cfg,const std::vector<ProgramGenome>* initial,
+     std::optional<Trace>& traced) {
+  try{traced=trace(evolve_population(cases,cfg,initial));return std::string();}catch(const std::exception& e){return std::string(e.what());}
+ };
+ {
+  const auto ambiguous=load("phase_site_ambiguous.json");
+  const auto cases=cli_detail::decode_fitness_cases_json(cli_detail::JsonParser(cases_json(*ambiguous),{true,64}).parse());
+  std::vector<std::string> names{"x"};
+  const auto population=repro::generate_phase_initial_population(*ambiguous,grammar::entry_request(*ambiguous),names,16,0,1);
+  for(const auto& member:population)require(member.ast.nodes.size()==1,"phase_site_ambiguous.json: a member over site depth 1 was kept");
+  std::vector<Trace> traces;
+  for(const bool gpu:{false,true}) {
+   std::optional<Trace> traced;const auto error=run(cases,configure(ambiguous,1,gpu),nullptr,traced);
+   require(error.empty(),std::string("phase_site_ambiguous.json")+(gpu?" GPU: ":" CPU: ")+error);traces.push_back(*traced);
+  }
+  require_same(traces[0],traces[1],"phase_site_ambiguous.json site depth 1");
+  std::optional<ProgramGenome> two;
+  for(unsigned seed=0;!two;++seed){auto g=generated(*ambiguous,seed);if(g && g->ast.nodes.size()==2)two=g;}
+  const std::vector<ProgramGenome> supplied(16,*two);
+  for(const bool gpu:{false,true}) {
+   std::optional<Trace> traced;const auto error=run(cases,configure(ambiguous,1,gpu),&supplied,traced);
+   require(error.find("initial member 0 derives with 2 nested grammar invocations on one path, over limits.site_depth 1 (0 disables the cap)")!=
+       std::string::npos,std::string("phase_site_ambiguous.json supplied")+(gpu?" GPU: ":" CPU: ")+error);
+  }
+ }
+ const auto deep=load("phase_site_depth_9.json");
+ const auto cases=cli_detail::decode_fitness_cases_json(cli_detail::JsonParser(cases_json(*deep),{true,64}).parse());
+ std::vector<Trace> traces;
+ for(const int site_depth:{9,8})for(const bool gpu:{false,true}) {
+  std::optional<Trace> traced;const auto error=run(cases,configure(deep,site_depth,gpu),nullptr,traced);
+  const auto label=std::string("phase_site_depth_9.json site depth ")+std::to_string(site_depth)+(gpu?" GPU: ":" CPU: ");
+  if(site_depth==9){require(error.empty(),label+error);traces.push_back(*traced);}
+  else require(error.find("resident engine cannot admit")!=std::string::npos && error.find("no program within limits.site_depth 8: "
+      "every derivation nests at least 9 grammar invocations on one path (limits.site_depth 0 disables the cap)")!=std::string::npos,label+error);
+ }
+ require_same(traces[0],traces[1],"phase_site_depth_9.json site depth 9");
+ std::cout<<"limits.site_depth: ambiguous reconstructions redrawn or rejected by name, too shallow a cap rejected at admission, on CPU and GPU\n";
+}
 // The two language restrictions of the resident engine: a sequence constant
 // domain and a nonterminal reached under two binder environments (Step under
 // a traversal at binders 0..2 and under a let and a traversal at 1..3). Both
@@ -552,6 +605,7 @@ int main() { try {
  check_shared_hole_records();
  check_unused_local();
  check_loop_locals();
+ check_site_depth();
  check_language_restrictions();
  // Repeated holes share one derivation: recursive, skewed in depth, with a
  // constant in the fill, forwarded through a nested template, and under a let.

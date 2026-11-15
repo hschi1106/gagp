@@ -427,6 +427,43 @@ inline void require_phase_member_capacity(const grammar::CompiledGrammar& gramma
   catch (const std::invalid_argument&) {}
 }
 
+// The site depth of an imported member: the most grammar invocations on one
+// root path of the derivation the importer reconstructed, over all its
+// phases, or -1 when a phase gene does not follow its phase grammar. An
+// ambiguous grammar derives some programs two ways, and the importer takes
+// the first derivation, which may nest deeper than the one generated.
+inline int phase_member_site_depth(const grammar::CompiledGrammar& grammar, const NativePhaseLayout& member,
+    NativePhaseGrammarProfiles& profiles) {
+  int depth = 0;
+  for (std::size_t k = 0; k < member.slots.size(); ++k) {
+    const auto& slot = member.slots[k]; const auto& gene = member.genes.at(k);
+    const auto& profile = profiles.get(grammar, slot.nonterminal, member.budget.max_depth);
+    const int count = static_cast<int>(gene.nodes.size());
+    std::vector<PhaseGeneSite> sites(std::max(count, 1));
+    if (!annotate_phase_tree(phase_structure_view(profile), int(profile.root_expression),
+            int(grammar.nonterminals().at(slot.nonterminal).scope.size()), gene.nodes.data(), gene.origins.data(), count,
+            sites.data(), gene.constants.data(), int(gene.constants.size()))) return -1;
+    const int phase = phase_site_depth(gene.nodes.data(), sites.data(), count);
+    if (phase < 0) return -1;
+    depth = std::max(depth, phase);
+  }
+  return depth;
+}
+// Every imported member must derive within limits.site_depth (0 is no cap).
+// Both owners check this on the host before annotating their phase genes.
+inline void require_phase_import_site_depth(const grammar::CompiledGrammar& grammar,
+    const std::vector<NativePhaseLayout>& members, NativePhaseGrammarProfiles& profiles, int site_depth) {
+  if (!site_depth) return;
+  for (std::size_t p = 0; p < members.size(); ++p) {
+    const int depth = phase_member_site_depth(grammar, members[p], profiles);
+    phase_layout_require(depth >= 0, "the phase genes of initial member " + std::to_string(p) +
+        " do not follow their phase grammar");
+    phase_layout_require(depth <= site_depth, "initial member " + std::to_string(p) + " derives with " +
+        std::to_string(depth) + " nested grammar invocations on one path, over limits.site_depth " +
+        std::to_string(site_depth) + " (0 disables the cap)");
+  }
+}
+
 // Export only. The caller supplies a private run's current device copyback;
 // external/imported gene buffers must never bypass independent admission.
 inline ProgramGenome export_native_phase_layout(const grammar::CompiledGrammar& grammar,

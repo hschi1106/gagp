@@ -1,0 +1,74 @@
+{
+ "format_version": "grammar-definition-v2",
+ "entry": {
+  "nonterminal": "S",
+  "type": "Int"
+ },
+ "inputs": [
+  {
+   "name": "x",
+   "type": "Int"
+  }
+ ],
+ "search_limits": {
+  "max_nodes": 8,
+  "max_depth": 4
+ },
+ "execution_limits": {
+  "fuel": 32
+ },
+ "nonterminals": [
+  {
+   "id": "S",
+   "type": "Int",
+   "scope": [],
+   "alternatives": [
+    {
+     "id": "via",
+     "weight": 1,
+     "expression": {
+      "signature": "neg(Int)->Int",
+      "args": [
+       {
+        "ref": "B"
+       }
+      ]
+     }
+    },
+    {
+     "id": "direct",
+     "weight": 1,
+     "expression": {
+      "signature": "neg(Int)->Int",
+      "args": [
+       {
+        "input": "x"
+       }
+      ]
+     }
+    },
+    {
+     "id": "leaf",
+     "weight": 1,
+     "expression": {
+      "input": "x"
+     }
+    }
+   ]
+  },
+  {
+   "id": "B",
+   "type": "Int",
+   "scope": [],
+   "alternatives": [
+    {
+     "id": "x",
+     "weight": 1,
+     "expression": {
+      "input": "x"
+     }
+    }
+   ]
+  }
+ ]
+}

@@ -39,6 +39,11 @@ identical populations, fitness values and champions on both engines).
 - A generated initial member that exceeds a per-program capacity is redrawn
   from a derived seed, up to 256 times, identically on both engines. Members
   that fit on the first draw are unchanged.
+- With `limits.site_depth` above 0, a generated initial member whose
+  derivation as the import reconstructs it (the first, for an ambiguous
+  grammar) exceeds the site depth is redrawn, so the `psb1_g3p` grammars run
+  under the default search. A grammar with no program within the site depth
+  is rejected at admission, naming the depth it needs.
 - A bounded region plan declares at most 1,024 frames and 4,096 memo cells.
   Plan validation enforces this on both engines, replacing the GPU-only limits
   of 128 frames and 256 cells. Large plans use a per-lane hash index on the GPU.

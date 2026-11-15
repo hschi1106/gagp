@@ -521,6 +521,7 @@ NativePhasePopulation::NativePhasePopulation(std::shared_ptr<const grammar::Comp
  if(site_depth)for(std::size_t k=0;k<impl_->layout.slots.size();++k)
   impl_->layout.profiles[k]=compile_phase_variation_grammar(*impl_->grammar,
       impl_->layout.slots[k].nonterminal,impl_->grammar->search_limits().max_depth,site_depth,&input_names);
+ require_phase_import_site_depth(*impl_->grammar,imports,*import_profiles,site_depth);
  impl_->reproduction_profile=site_depth?"resident-gpu-v4-site-depth"+std::to_string(site_depth):
      impl_->operators.counted_sites?"resident-gpu-v2-counted":"resident-gpu-v1";
  impl_->reproduction_profile+=phase_variation_profile_suffix(policy);
@@ -613,7 +614,13 @@ NativePhasePopulation::NativePhasePopulation(std::shared_ptr<const grammar::Comp
   checked(cudaGetLastError());checked(cudaDeviceSynchronize());
  }
  annotate_import<<<(rows+63)/64,64>>>(pointers(*impl_->current),impl_->slots.data,rows,impl_->slot_count);checked(cudaGetLastError());
- for(const auto& r:impl_->current->lengths.read(rows))phase_layout_require(valid(r),"import site annotation failed");
+ {
+  // The host already checked each member's site depth; this is the device
+  // annotation of the same derivation.
+  const auto lengths=impl_->current->lengths.read(rows);
+  for(std::size_t row=0;row<lengths.size();++row)phase_layout_require(valid(lengths[row]),
+      "the phase genes of initial member "+std::to_string(row/impl_->slot_count)+" do not annotate against the site-depth phase grammar");
+ }
  if(!impl_->staged_buffers)impl_->reserve_reproduction_buffers();
  {
   // Every program above passed cold GPU bytecode verification with the same
