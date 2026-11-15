@@ -49,6 +49,13 @@ identical populations, fitness values and champions on both engines).
   whose deepest path needs more than 64 locals is now rejected at admission on
   both engines. The CPU engine also refuses an initial executable over 64
   locals, as the GPU engine does, so the two never disagree on a grammar.
+- Admission bounds the locals of the root program and of each bounded region
+  phase separately, each against 64, so phase temporaries no longer count
+  against the root. A program over 4,096 code records or 1,024 constants
+  stops both engines with one message that names the capacity. A positive
+  grammar weight stays positive when unit inlining scales it. A phase that
+  has no program within `limits.site_depth` at its own depth is rejected
+  naming the site depth it needs.
 - A bounded region plan declares at most 1,024 frames and 4,096 memo cells.
   Plan validation enforces this on both engines, replacing the GPU-only limits
   of 128 frames and 256 cells. Large plans use a per-lane hash index on the GPU.

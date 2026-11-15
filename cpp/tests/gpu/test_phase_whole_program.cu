@@ -654,6 +654,17 @@ void check_site_depth() {
       "program envelope): it needs limits.site_depth 3 (limits.site_depth 0 disables the cap)")!=std::string::npos,label+error);
  }
  require_same(budget_traces[0],budget_traces[1],"phase_site_depth_budget.json site depth 3");
+ // phase_site_ambiguous_only: S -> neg(A) | neg(neg(x)), A -> neg(B),
+ // B -> x. Every program is read back through neg(A) at site depth 3, so at
+ // site depth 1 all 256 draws fail and both owners name the cap.
+ const auto only=load("phase_site_ambiguous_only.json");
+ const auto only_cases=cli_detail::decode_fitness_cases_json(cli_detail::JsonParser(cases_json(*only),{true,64}).parse());
+ for(const bool gpu:{false,true}) {
+  std::optional<Trace> traced;const auto error=run(only_cases,configure(only,1,gpu),nullptr,traced);
+  require(error.find("initial member 0: in each of 256 draws the importer reconstructs a derivation over limits.site_depth 1, "
+      "last with 3 nested grammar invocations (0 disables the cap)")!=std::string::npos,
+      std::string("phase_site_ambiguous_only.json")+(gpu?" GPU: ":" CPU: ")+error);
+ }
  std::cout<<"limits.site_depth: ambiguous reconstructions redrawn or rejected by name, too shallow a cap rejected by name, on CPU and GPU\n";
 }
 // The two language restrictions of the resident engine: a sequence constant
