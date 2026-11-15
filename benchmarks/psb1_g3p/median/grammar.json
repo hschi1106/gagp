@@ -1,0 +1,1427 @@
+{
+ "format_version": "grammar-definition-v2",
+ "entry": {
+  "category": "Program",
+  "nonterminal": "G.Program",
+  "type": "Int"
+ },
+ "inputs": [
+  {
+   "name": "in0",
+   "type": "Int"
+  },
+  {
+   "name": "in1",
+   "type": "Int"
+  },
+  {
+   "name": "in2",
+   "type": "Int"
+  }
+ ],
+ "locals": [
+  {
+   "name": "i0",
+   "type": "Int"
+  },
+  {
+   "name": "i1",
+   "type": "Int"
+  },
+  {
+   "name": "i2",
+   "type": "Int"
+  },
+  {
+   "name": "b0",
+   "type": "Bool"
+  },
+  {
+   "name": "b1",
+   "type": "Bool"
+  },
+  {
+   "name": "b2",
+   "type": "Bool"
+  },
+  {
+   "name": "res0",
+   "type": "Int"
+  },
+  {
+   "name": "k",
+   "type": "Int"
+  }
+ ],
+ "search_limits": {
+  "max_nodes": 198,
+  "max_depth": 40
+ },
+ "execution_limits": {
+  "fuel": 20000
+ },
+ "nonterminals": [
+  {
+   "id": "G.Program",
+   "type": "Int",
+   "scope": [],
+   "category": "Program",
+   "variation": false,
+   "alternatives": [
+    {
+     "id": "a0",
+     "weight": 1.0,
+     "expression": {
+      "control": "program(Block)->Program",
+      "type": "Int",
+      "args": [
+       {
+        "control": "block_cons(Statement,Block)->Block",
+        "type": "Int",
+        "args": [
+         {
+          "control": "assign(Int)->Statement",
+          "type": "Int",
+          "args": [
+           {
+            "constant": {
+             "type": "Int",
+             "values": [
+              "0"
+             ]
+            }
+           }
+          ],
+          "name": "i0"
+         },
+         {
+          "control": "block_cons(Statement,Block)->Block",
+          "type": "Int",
+          "args": [
+           {
+            "control": "assign(Int)->Statement",
+            "type": "Int",
+            "args": [
+             {
+              "constant": {
+               "type": "Int",
+               "values": [
+                "0"
+               ]
+              }
+             }
+            ],
+            "name": "i1"
+           },
+           {
+            "control": "block_cons(Statement,Block)->Block",
+            "type": "Int",
+            "args": [
+             {
+              "control": "assign(Int)->Statement",
+              "type": "Int",
+              "args": [
+               {
+                "constant": {
+                 "type": "Int",
+                 "values": [
+                  "0"
+                 ]
+                }
+               }
+              ],
+              "name": "i2"
+             },
+             {
+              "control": "block_cons(Statement,Block)->Block",
+              "type": "Int",
+              "args": [
+               {
+                "control": "assign(Bool)->Statement",
+                "type": "Int",
+                "args": [
+                 {
+                  "constant": {
+                   "type": "Bool",
+                   "values": [
+                    false
+                   ]
+                  }
+                 }
+                ],
+                "name": "b0"
+               },
+               {
+                "control": "block_cons(Statement,Block)->Block",
+                "type": "Int",
+                "args": [
+                 {
+                  "control": "assign(Bool)->Statement",
+                  "type": "Int",
+                  "args": [
+                   {
+                    "constant": {
+                     "type": "Bool",
+                     "values": [
+                      false
+                     ]
+                    }
+                   }
+                  ],
+                  "name": "b1"
+                 },
+                 {
+                  "control": "block_cons(Statement,Block)->Block",
+                  "type": "Int",
+                  "args": [
+                   {
+                    "control": "assign(Bool)->Statement",
+                    "type": "Int",
+                    "args": [
+                     {
+                      "constant": {
+                       "type": "Bool",
+                       "values": [
+                        false
+                       ]
+                      }
+                     }
+                    ],
+                    "name": "b2"
+                   },
+                   {
+                    "control": "block_cons(Statement,Block)->Block",
+                    "type": "Int",
+                    "args": [
+                     {
+                      "control": "assign(Int)->Statement",
+                      "type": "Int",
+                      "args": [
+                       {
+                        "constant": {
+                         "type": "Int",
+                         "values": [
+                          "0"
+                         ]
+                        }
+                       }
+                      ],
+                      "name": "res0"
+                     },
+                     {
+                      "control": "block_cons(Statement,Block)->Block",
+                      "type": "Int",
+                      "args": [
+                       {
+                        "control": "assign(Int)->Statement",
+                        "type": "Int",
+                        "args": [
+                         {
+                          "constant": {
+                           "type": "Int",
+                           "values": [
+                            "0"
+                           ]
+                          }
+                         }
+                        ],
+                        "name": "k"
+                       },
+                       {
+                        "ref": "G.Main"
+                       }
+                      ]
+                     }
+                    ]
+                   }
+                  ]
+                 }
+                ]
+               }
+              ]
+             }
+            ]
+           }
+          ]
+         }
+        ]
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "G.Int",
+   "type": "Int",
+   "scope": [],
+   "alternatives": [
+    {
+     "id": "a0",
+     "weight": 0.017857142857142856,
+     "expression": {
+      "local": "i0"
+     }
+    },
+    {
+     "id": "a1",
+     "weight": 0.017857142857142856,
+     "expression": {
+      "local": "i1"
+     }
+    },
+    {
+     "id": "a2",
+     "weight": 0.017857142857142856,
+     "expression": {
+      "local": "i2"
+     }
+    },
+    {
+     "id": "a3",
+     "weight": 0.017857142857142856,
+     "expression": {
+      "local": "res0"
+     }
+    },
+    {
+     "id": "a4",
+     "weight": 0.017857142857142856,
+     "expression": {
+      "input": "in0"
+     }
+    },
+    {
+     "id": "a5",
+     "weight": 0.017857142857142856,
+     "expression": {
+      "input": "in1"
+     }
+    },
+    {
+     "id": "a6",
+     "weight": 0.017857142857142856,
+     "expression": {
+      "input": "in2"
+     }
+    },
+    {
+     "id": "a7",
+     "weight": 0.0625,
+     "expression": {
+      "constant": {
+       "type": "Int",
+       "range": [
+        "0",
+        "9"
+       ]
+      }
+     }
+    },
+    {
+     "id": "a8",
+     "weight": 0.03125,
+     "expression": {
+      "constant": {
+       "type": "Int",
+       "range": [
+        "10",
+        "99"
+       ]
+      }
+     }
+    },
+    {
+     "id": "a9",
+     "weight": 0.015625,
+     "expression": {
+      "constant": {
+       "type": "Int",
+       "range": [
+        "100",
+        "999"
+       ]
+      }
+     }
+    },
+    {
+     "id": "a10",
+     "weight": 0.0078125,
+     "expression": {
+      "constant": {
+       "type": "Int",
+       "range": [
+        "1000",
+        "9999"
+       ]
+      }
+     }
+    },
+    {
+     "id": "a11",
+     "weight": 0.0078125,
+     "expression": {
+      "constant": {
+       "type": "Int",
+       "range": [
+        "10000",
+        "99999"
+       ]
+      }
+     }
+    },
+    {
+     "id": "a12",
+     "weight": 0.125,
+     "expression": {
+      "signature": "neg(Int)->Int",
+      "args": [
+       {
+        "ref": "G.Int"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a13",
+     "weight": 0.041666666666666664,
+     "expression": {
+      "signature": "add(Int,Int)->Int",
+      "args": [
+       {
+        "ref": "G.Int"
+       },
+       {
+        "ref": "G.Int"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a14",
+     "weight": 0.041666666666666664,
+     "expression": {
+      "signature": "sub(Int,Int)->Int",
+      "args": [
+       {
+        "ref": "G.Int"
+       },
+       {
+        "ref": "G.Int"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a15",
+     "weight": 0.041666666666666664,
+     "expression": {
+      "signature": "mul(Int,Int)->Int",
+      "args": [
+       {
+        "ref": "G.Int"
+       },
+       {
+        "ref": "G.Int"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a16",
+     "weight": 0.0625,
+     "expression": {
+      "signature": "idiv0(Int,Int)->Int",
+      "args": [
+       {
+        "ref": "G.Int"
+       },
+       {
+        "ref": "G.Int"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a17",
+     "weight": 0.0625,
+     "expression": {
+      "signature": "imod0(Int,Int)->Int",
+      "args": [
+       {
+        "ref": "G.Int"
+       },
+       {
+        "ref": "G.Int"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a18",
+     "weight": 0.125,
+     "expression": {
+      "signature": "min(Int,Int)->Int",
+      "args": [
+       {
+        "ref": "G.Int"
+       },
+       {
+        "ref": "G.Int"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a19",
+     "weight": 0.125,
+     "expression": {
+      "signature": "max(Int,Int)->Int",
+      "args": [
+       {
+        "ref": "G.Int"
+       },
+       {
+        "ref": "G.Int"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a20",
+     "weight": 0.125,
+     "expression": {
+      "signature": "abs(Int)->Int",
+      "args": [
+       {
+        "ref": "G.Int"
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "G.Bool",
+   "type": "Bool",
+   "scope": [],
+   "alternatives": [
+    {
+     "id": "a0",
+     "weight": 0.06666666666666664,
+     "expression": {
+      "local": "b0"
+     }
+    },
+    {
+     "id": "a1",
+     "weight": 0.06666666666666664,
+     "expression": {
+      "local": "b1"
+     }
+    },
+    {
+     "id": "a2",
+     "weight": 0.06666666666666664,
+     "expression": {
+      "local": "b2"
+     }
+    },
+    {
+     "id": "a3",
+     "weight": 0.19999999999999993,
+     "expression": {
+      "constant": {
+       "type": "Bool",
+       "values": [
+        true,
+        false
+       ]
+      }
+     }
+    },
+    {
+     "id": "a4",
+     "weight": 0.19999999999999993,
+     "expression": {
+      "signature": "not(Bool)->Bool",
+      "args": [
+       {
+        "ref": "G.Bool"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a5",
+     "weight": 0.09999999999999996,
+     "expression": {
+      "signature": "and(Bool,Bool)->Bool",
+      "args": [
+       {
+        "ref": "G.Bool"
+       },
+       {
+        "ref": "G.Bool"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a6",
+     "weight": 0.09999999999999996,
+     "expression": {
+      "signature": "or(Bool,Bool)->Bool",
+      "args": [
+       {
+        "ref": "G.Bool"
+       },
+       {
+        "ref": "G.Bool"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a7",
+     "weight": 0.03333333333333332,
+     "expression": {
+      "signature": "lt(Int,Int)->Bool",
+      "args": [
+       {
+        "ref": "G.Int"
+       },
+       {
+        "ref": "G.Int"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a8",
+     "weight": 0.03333333333333332,
+     "expression": {
+      "signature": "gt(Int,Int)->Bool",
+      "args": [
+       {
+        "ref": "G.Int"
+       },
+       {
+        "ref": "G.Int"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a9",
+     "weight": 0.03333333333333332,
+     "expression": {
+      "signature": "eq(Int,Int)->Bool",
+      "args": [
+       {
+        "ref": "G.Int"
+       },
+       {
+        "ref": "G.Int"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a10",
+     "weight": 0.03333333333333332,
+     "expression": {
+      "signature": "ge(Int,Int)->Bool",
+      "args": [
+       {
+        "ref": "G.Int"
+       },
+       {
+        "ref": "G.Int"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a11",
+     "weight": 0.03333333333333332,
+     "expression": {
+      "signature": "le(Int,Int)->Bool",
+      "args": [
+       {
+        "ref": "G.Int"
+       },
+       {
+        "ref": "G.Int"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a12",
+     "weight": 0.03333333333333332,
+     "expression": {
+      "signature": "ne(Int,Int)->Bool",
+      "args": [
+       {
+        "ref": "G.Int"
+       },
+       {
+        "ref": "G.Int"
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "G.Stmt",
+   "type": "Int",
+   "scope": [],
+   "category": "Statement",
+   "alternatives": [
+    {
+     "id": "a0",
+     "weight": 0.08333333333333337,
+     "expression": {
+      "control": "assign(Bool)->Statement",
+      "type": "Int",
+      "args": [
+       {
+        "ref": "G.Bool"
+       }
+      ],
+      "name": "b0"
+     }
+    },
+    {
+     "id": "a1",
+     "weight": 0.08333333333333337,
+     "expression": {
+      "control": "assign(Bool)->Statement",
+      "type": "Int",
+      "args": [
+       {
+        "ref": "G.Bool"
+       }
+      ],
+      "name": "b1"
+     }
+    },
+    {
+     "id": "a2",
+     "weight": 0.08333333333333337,
+     "expression": {
+      "control": "assign(Bool)->Statement",
+      "type": "Int",
+      "args": [
+       {
+        "ref": "G.Bool"
+       }
+      ],
+      "name": "b2"
+     }
+    },
+    {
+     "id": "a3",
+     "weight": 0.017857142857142863,
+     "expression": {
+      "control": "assign(Int)->Statement",
+      "type": "Int",
+      "args": [
+       {
+        "ref": "G.Int"
+       }
+      ],
+      "name": "i0"
+     }
+    },
+    {
+     "id": "a4",
+     "weight": 0.017857142857142863,
+     "expression": {
+      "control": "assign(Int)->Statement",
+      "type": "Int",
+      "args": [
+       {
+        "ref": "G.Int"
+       }
+      ],
+      "name": "i1"
+     }
+    },
+    {
+     "id": "a5",
+     "weight": 0.017857142857142863,
+     "expression": {
+      "control": "assign(Int)->Statement",
+      "type": "Int",
+      "args": [
+       {
+        "ref": "G.Int"
+       }
+      ],
+      "name": "i2"
+     }
+    },
+    {
+     "id": "a6",
+     "weight": 0.017857142857142863,
+     "expression": {
+      "control": "assign(Int)->Statement",
+      "type": "Int",
+      "args": [
+       {
+        "ref": "G.Int"
+       }
+      ],
+      "name": "res0"
+     }
+    },
+    {
+     "id": "a7",
+     "weight": 0.017857142857142863,
+     "expression": {
+      "control": "assign(Int)->Statement",
+      "type": "Int",
+      "args": [
+       {
+        "ref": "G.Int"
+       }
+      ],
+      "input_name": "in0"
+     }
+    },
+    {
+     "id": "a8",
+     "weight": 0.017857142857142863,
+     "expression": {
+      "control": "assign(Int)->Statement",
+      "type": "Int",
+      "args": [
+       {
+        "ref": "G.Int"
+       }
+      ],
+      "input_name": "in1"
+     }
+    },
+    {
+     "id": "a9",
+     "weight": 0.017857142857142863,
+     "expression": {
+      "control": "assign(Int)->Statement",
+      "type": "Int",
+      "args": [
+       {
+        "ref": "G.Int"
+       }
+      ],
+      "input_name": "in2"
+     }
+    },
+    {
+     "id": "a10",
+     "weight": 0.005952380952380955,
+     "expression": {
+      "control": "assign(Int)->Statement",
+      "type": "Int",
+      "args": [
+       {
+        "signature": "add(Int,Int)->Int",
+        "args": [
+         {
+          "local": "i0"
+         },
+         {
+          "ref": "G.Int"
+         }
+        ]
+       }
+      ],
+      "name": "i0"
+     }
+    },
+    {
+     "id": "a11",
+     "weight": 0.005952380952380955,
+     "expression": {
+      "control": "assign(Int)->Statement",
+      "type": "Int",
+      "args": [
+       {
+        "signature": "sub(Int,Int)->Int",
+        "args": [
+         {
+          "local": "i0"
+         },
+         {
+          "ref": "G.Int"
+         }
+        ]
+       }
+      ],
+      "name": "i0"
+     }
+    },
+    {
+     "id": "a12",
+     "weight": 0.005952380952380955,
+     "expression": {
+      "control": "assign(Int)->Statement",
+      "type": "Int",
+      "args": [
+       {
+        "signature": "mul(Int,Int)->Int",
+        "args": [
+         {
+          "local": "i0"
+         },
+         {
+          "ref": "G.Int"
+         }
+        ]
+       }
+      ],
+      "name": "i0"
+     }
+    },
+    {
+     "id": "a13",
+     "weight": 0.005952380952380955,
+     "expression": {
+      "control": "assign(Int)->Statement",
+      "type": "Int",
+      "args": [
+       {
+        "signature": "add(Int,Int)->Int",
+        "args": [
+         {
+          "local": "i1"
+         },
+         {
+          "ref": "G.Int"
+         }
+        ]
+       }
+      ],
+      "name": "i1"
+     }
+    },
+    {
+     "id": "a14",
+     "weight": 0.005952380952380955,
+     "expression": {
+      "control": "assign(Int)->Statement",
+      "type": "Int",
+      "args": [
+       {
+        "signature": "sub(Int,Int)->Int",
+        "args": [
+         {
+          "local": "i1"
+         },
+         {
+          "ref": "G.Int"
+         }
+        ]
+       }
+      ],
+      "name": "i1"
+     }
+    },
+    {
+     "id": "a15",
+     "weight": 0.005952380952380955,
+     "expression": {
+      "control": "assign(Int)->Statement",
+      "type": "Int",
+      "args": [
+       {
+        "signature": "mul(Int,Int)->Int",
+        "args": [
+         {
+          "local": "i1"
+         },
+         {
+          "ref": "G.Int"
+         }
+        ]
+       }
+      ],
+      "name": "i1"
+     }
+    },
+    {
+     "id": "a16",
+     "weight": 0.005952380952380955,
+     "expression": {
+      "control": "assign(Int)->Statement",
+      "type": "Int",
+      "args": [
+       {
+        "signature": "add(Int,Int)->Int",
+        "args": [
+         {
+          "local": "i2"
+         },
+         {
+          "ref": "G.Int"
+         }
+        ]
+       }
+      ],
+      "name": "i2"
+     }
+    },
+    {
+     "id": "a17",
+     "weight": 0.005952380952380955,
+     "expression": {
+      "control": "assign(Int)->Statement",
+      "type": "Int",
+      "args": [
+       {
+        "signature": "sub(Int,Int)->Int",
+        "args": [
+         {
+          "local": "i2"
+         },
+         {
+          "ref": "G.Int"
+         }
+        ]
+       }
+      ],
+      "name": "i2"
+     }
+    },
+    {
+     "id": "a18",
+     "weight": 0.005952380952380955,
+     "expression": {
+      "control": "assign(Int)->Statement",
+      "type": "Int",
+      "args": [
+       {
+        "signature": "mul(Int,Int)->Int",
+        "args": [
+         {
+          "local": "i2"
+         },
+         {
+          "ref": "G.Int"
+         }
+        ]
+       }
+      ],
+      "name": "i2"
+     }
+    },
+    {
+     "id": "a19",
+     "weight": 0.005952380952380955,
+     "expression": {
+      "control": "assign(Int)->Statement",
+      "type": "Int",
+      "args": [
+       {
+        "signature": "add(Int,Int)->Int",
+        "args": [
+         {
+          "local": "res0"
+         },
+         {
+          "ref": "G.Int"
+         }
+        ]
+       }
+      ],
+      "name": "res0"
+     }
+    },
+    {
+     "id": "a20",
+     "weight": 0.005952380952380955,
+     "expression": {
+      "control": "assign(Int)->Statement",
+      "type": "Int",
+      "args": [
+       {
+        "signature": "sub(Int,Int)->Int",
+        "args": [
+         {
+          "local": "res0"
+         },
+         {
+          "ref": "G.Int"
+         }
+        ]
+       }
+      ],
+      "name": "res0"
+     }
+    },
+    {
+     "id": "a21",
+     "weight": 0.005952380952380955,
+     "expression": {
+      "control": "assign(Int)->Statement",
+      "type": "Int",
+      "args": [
+       {
+        "signature": "mul(Int,Int)->Int",
+        "args": [
+         {
+          "local": "res0"
+         },
+         {
+          "ref": "G.Int"
+         }
+        ]
+       }
+      ],
+      "name": "res0"
+     }
+    },
+    {
+     "id": "a22",
+     "weight": 0.005952380952380955,
+     "expression": {
+      "control": "assign(Int)->Statement",
+      "type": "Int",
+      "args": [
+       {
+        "signature": "add(Int,Int)->Int",
+        "args": [
+         {
+          "input": "in0"
+         },
+         {
+          "ref": "G.Int"
+         }
+        ]
+       }
+      ],
+      "input_name": "in0"
+     }
+    },
+    {
+     "id": "a23",
+     "weight": 0.005952380952380955,
+     "expression": {
+      "control": "assign(Int)->Statement",
+      "type": "Int",
+      "args": [
+       {
+        "signature": "sub(Int,Int)->Int",
+        "args": [
+         {
+          "input": "in0"
+         },
+         {
+          "ref": "G.Int"
+         }
+        ]
+       }
+      ],
+      "input_name": "in0"
+     }
+    },
+    {
+     "id": "a24",
+     "weight": 0.005952380952380955,
+     "expression": {
+      "control": "assign(Int)->Statement",
+      "type": "Int",
+      "args": [
+       {
+        "signature": "mul(Int,Int)->Int",
+        "args": [
+         {
+          "input": "in0"
+         },
+         {
+          "ref": "G.Int"
+         }
+        ]
+       }
+      ],
+      "input_name": "in0"
+     }
+    },
+    {
+     "id": "a25",
+     "weight": 0.005952380952380955,
+     "expression": {
+      "control": "assign(Int)->Statement",
+      "type": "Int",
+      "args": [
+       {
+        "signature": "add(Int,Int)->Int",
+        "args": [
+         {
+          "input": "in1"
+         },
+         {
+          "ref": "G.Int"
+         }
+        ]
+       }
+      ],
+      "input_name": "in1"
+     }
+    },
+    {
+     "id": "a26",
+     "weight": 0.005952380952380955,
+     "expression": {
+      "control": "assign(Int)->Statement",
+      "type": "Int",
+      "args": [
+       {
+        "signature": "sub(Int,Int)->Int",
+        "args": [
+         {
+          "input": "in1"
+         },
+         {
+          "ref": "G.Int"
+         }
+        ]
+       }
+      ],
+      "input_name": "in1"
+     }
+    },
+    {
+     "id": "a27",
+     "weight": 0.005952380952380955,
+     "expression": {
+      "control": "assign(Int)->Statement",
+      "type": "Int",
+      "args": [
+       {
+        "signature": "mul(Int,Int)->Int",
+        "args": [
+         {
+          "input": "in1"
+         },
+         {
+          "ref": "G.Int"
+         }
+        ]
+       }
+      ],
+      "input_name": "in1"
+     }
+    },
+    {
+     "id": "a28",
+     "weight": 0.005952380952380955,
+     "expression": {
+      "control": "assign(Int)->Statement",
+      "type": "Int",
+      "args": [
+       {
+        "signature": "add(Int,Int)->Int",
+        "args": [
+         {
+          "input": "in2"
+         },
+         {
+          "ref": "G.Int"
+         }
+        ]
+       }
+      ],
+      "input_name": "in2"
+     }
+    },
+    {
+     "id": "a29",
+     "weight": 0.005952380952380955,
+     "expression": {
+      "control": "assign(Int)->Statement",
+      "type": "Int",
+      "args": [
+       {
+        "signature": "sub(Int,Int)->Int",
+        "args": [
+         {
+          "input": "in2"
+         },
+         {
+          "ref": "G.Int"
+         }
+        ]
+       }
+      ],
+      "input_name": "in2"
+     }
+    },
+    {
+     "id": "a30",
+     "weight": 0.005952380952380955,
+     "expression": {
+      "control": "assign(Int)->Statement",
+      "type": "Int",
+      "args": [
+       {
+        "signature": "mul(Int,Int)->Int",
+        "args": [
+         {
+          "input": "in2"
+         },
+         {
+          "ref": "G.Int"
+         }
+        ]
+       }
+      ],
+      "input_name": "in2"
+     }
+    },
+    {
+     "id": "a31",
+     "weight": 0.2500000000000001,
+     "expression": {
+      "control": "if_stmt(Bool,Block,Block)->Statement",
+      "type": "Int",
+      "args": [
+       {
+        "ref": "G.Bool"
+       },
+       {
+        "ref": "G.Code"
+       },
+       {
+        "control": "block_nil()->Block",
+        "type": "Int",
+        "args": []
+       }
+      ]
+     }
+    },
+    {
+     "id": "a32",
+     "weight": 0.2500000000000001,
+     "expression": {
+      "control": "if_stmt(Bool,Block,Block)->Statement",
+      "type": "Int",
+      "args": [
+       {
+        "ref": "G.Bool"
+       },
+       {
+        "ref": "G.Code"
+       },
+       {
+        "ref": "G.Code"
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "G.Code",
+   "type": "Int",
+   "scope": [],
+   "category": "Block",
+   "alternatives": [
+    {
+     "id": "a0",
+     "weight": 0.5,
+     "expression": {
+      "control": "block_cons(Statement,Block)->Block",
+      "type": "Int",
+      "args": [
+       {
+        "ref": "G.Stmt"
+       },
+       {
+        "ref": "G.Code"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a1",
+     "weight": 0.5,
+     "expression": {
+      "control": "block_cons(Statement,Block)->Block",
+      "type": "Int",
+      "args": [
+       {
+        "ref": "G.Stmt"
+       },
+       {
+        "control": "block_nil()->Block",
+        "type": "Int",
+        "args": []
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "G.Main",
+   "type": "Int",
+   "scope": [],
+   "category": "Block",
+   "alternatives": [
+    {
+     "id": "a0",
+     "weight": 0.5,
+     "expression": {
+      "control": "block_cons(Statement,Block)->Block",
+      "type": "Int",
+      "args": [
+       {
+        "ref": "G.Stmt"
+       },
+       {
+        "ref": "G.Main"
+       }
+      ]
+     }
+    },
+    {
+     "id": "a1",
+     "weight": 0.5,
+     "expression": {
+      "control": "block_cons(Statement,Block)->Block",
+      "type": "Int",
+      "args": [
+       {
+        "ref": "G.Stmt"
+       },
+       {
+        "control": "block_cons(Statement,Block)->Block",
+        "type": "Int",
+        "args": [
+         {
+          "control": "return(Int)->Statement",
+          "type": "Int",
+          "args": [
+           {
+            "local": "res0"
+           }
+          ]
+         },
+         {
+          "control": "block_nil()->Block",
+          "type": "Int",
+          "args": []
+         }
+        ]
+       }
+      ]
+     }
+    }
+   ]
+  }
+ ]
+}

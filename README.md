@@ -96,7 +96,7 @@ the [command reference](docs/reference/cli.md).
 | [Getting started](docs/guides/getting-started.md) | Build, the example, your own task, troubleshooting |
 | [Grammar authoring](docs/guides/grammar-authoring.md) | Writing grammars: constants, scopes, templates, recursion |
 | [Command reference](docs/reference/cli.md) | Every command, option and setting |
-| [Benchmarks](benchmarks/README.md) | The `asgp30` suite and recorded results |
+| [Benchmarks](benchmarks/README.md) | The `asgp30` and `psb1_g3p` suites and recorded results |
 | [Architecture](docs/design/architecture.md) | Components and how one run flows through them |
 | [Specifications](spec/README.md) | Normative formats and semantics |
 | [Documentation index](docs/README.md) | Every document |

@@ -1,5 +1,13 @@
 # Benchmarks
 
+Two suites, both run by `run.py` (`--suite asgp30`, the default, or
+`--suite psb1_g3p`):
+
+| Suite | What it is |
+| --- | --- |
+| `asgp30/` | The 30 tasks of the ASGP paper, compared with its published success counts (below) |
+| [`psb1_g3p/`](psb1_g3p/README.md) | Six PSB1 problems with the G3P grammars and settings of Forstenlechner, compared with the published G3P counts |
+
 `asgp30/` is the benchmark of GAGP against the ASGP paper: the 30 program
 synthesis tasks of *Grammar-Guided Program Synthesis for Algorithm-Structured
 Programs* (ASGP), each as a ready-to-run `gagp run` task. `run.py` runs the
@@ -35,9 +43,10 @@ command resumes an interrupted benchmark. Every `run` rewrites `report.md`.
 | `--seeds 1-5` | `1-5` | Seeds, e.g. `1-10` or `1,3` |
 | `--population N` | 1024 | Population size |
 | `--generations N` | 64 | Generations |
+| `--suite NAME\|DIR` | `asgp30` | `asgp30`, `psb1_g3p` or a suite directory. A directory with a `literature.json` is run like `psb1_g3p`: seeds 1-100, settings from each task's `search.json`, [its own report](psb1_g3p/README.md#reading-the-report) |
 | `--search FILE` | built-in default | Search configuration ([reference](../docs/reference/cli.md#search-configuration)) |
 | `--jobs N` | 1 | Parallel runs, CPU engine only |
-| `--out DIR` | `logs/bench/asgp30` | Output directory |
+| `--out DIR` | `logs/bench/<suite>` | Output directory |
 | `--gagp PATH` | `cpp/build/gagp` | The `gagp` executable |
 
 ## Reading the report

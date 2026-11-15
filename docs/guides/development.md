@@ -81,7 +81,7 @@ minimized reproducer as a corpus file or a property test.
 ## Benchmarks and profiling
 
 `python3 benchmarks/run.py run --quick` runs a smoke subset of the benchmark
-suite; see [benchmarks/README.md](../../benchmarks/README.md). Report speedups
+suite (`--suite psb1_g3p` selects the second suite); see [benchmarks/README.md](../../benchmarks/README.md). Report speedups
 from Release builds without a profiler attached. Profile the GPU with Nsight
 Systems (`nsys profile cpp/build/gagp run ...`); `GAGP_GPU_DIAGNOSTICS=1` adds
 evaluation counters, and `GAGP_SEARCH_TRACE=1` prints per-generation timings.

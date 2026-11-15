@@ -23,7 +23,7 @@ before editing; stop expanding once those and the governing spec are clear.
 | Fitness metrics and payloads | `cpp/include/gagp/core/fitness_policy.hpp`, `cpu/fitness_cpu.cpp`, `gpu/fitness_gpu.cu`, `gpu/host_pack_gpu.cu`, `cpp/src/runtime/payload/payload.cpp` | `spec/fitness.md`, `docs/design/payload.md` | `gagp_test_fitness_contract`, `gagp_test_extended_payload_gpu`, `gagp_test_payload_*` |
 | Evolution loop, schedules, admission errors | `evolve_population`, `run_phase_population`, `run_phase_population_steady` in `cpp/src/evolution/evolve.cpp` | `spec/search_config.md` | `gagp_test_evolution_pipeline`, `gagp_test_phase_whole_program`, `gagp_test_cli` |
 | Resident engine, selection, crossover, mutation | `cpp/src/evolution/repro/gpu/`: `phase_operators.cuh` (shared per-child steps), `phase_population.cu` (GPU), `phase_population_cpu.cpp` (CPU reference), `phase_layout.hpp`, `phase_grammar.hpp`, `device/phase_compile.cuh` | `docs/design/gpu-reproduction.md`, `spec/search_config.md` | `gagp_test_phase_population_cpu_reference`, `gagp_test_gpu_phase_*`, `gagp_test_phase_whole_program` |
-| Benchmarks | `benchmarks/run.py`, `benchmarks/asgp30/` | `benchmarks/README.md` | `gagp_test_bench_runner` |
+| Benchmarks | `benchmarks/run.py`, `benchmarks/asgp30/`, `benchmarks/psb1_g3p/` (`build.py` generates its grammars) | `benchmarks/README.md`, `benchmarks/psb1_g3p/README.md` | `gagp_test_bench_runner`, `tests/repository/test_psb1_g3p.py` |
 | Build or test registration | `cpp/CMakeLists.txt`, `cpp/CMakePresets.json` | `docs/guides/development.md` | check the test exists with `ctest -N` |
 
 Rules that matter across modules:
