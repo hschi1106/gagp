@@ -195,16 +195,13 @@ void check(const char* fixture,Fixture mode,bool search=true) {
  const auto cases=cli_detail::decode_fitness_cases_json(cli_detail::JsonParser(cases_json(*compiled),{true,64}).parse());
  constexpr int population=64;
  EvolutionConfig base;base.population_size=population;base.generations=6;base.seed=5;base.elite_count=1;base.mutation_rate=0.3;
- base.compiled_grammar=compiled;base.generation_request=grammar::entry_request(*compiled);
- base.mutation_subtree_prob=1;base.fuel=compiled->execution_limits().fuel;base.penalty=1000;base.gpu_blocksize=32;
- base.phase_population=true;
+ base.compiled_grammar=compiled;base.fuel=compiled->execution_limits().fuel;base.penalty=1000;base.gpu_blocksize=32;
  // Evolution prunes unreachable payloads, so every run rebuilds its parents:
  // generated, none (site-depth initializer), or decoded from exported ASTs.
  const auto run=[&](int site_depth,const std::vector<std::string>* exported,bool gpu){
   auto cfg=base;cfg.gpu_phase_site_depth=site_depth;
   if(site_depth)cfg.phase_variation={PhaseSiteDraw::Counted,PhaseSiteScope::Genome,0.9,8};
   cfg.eval_engine=gpu?EvalEngine::GPU:EvalEngine::CPU;
-  cfg.reproduction_backend=gpu?ReproductionBackend::Gpu:ReproductionBackend::Cpu;
   std::vector<ProgramGenome> parents;
   if(exported)for(const auto& text:*exported){ProgramGenome g;g.ast=cli_detail::decode_ast_json(cli_detail::JsonParser(text,{true,512}).parse());parents.push_back(std::move(g));}
   else if(!site_depth)for(unsigned seed=901;int(parents.size())<population;++seed)if(auto g=generated(*compiled,seed))parents.push_back(std::move(*g));
@@ -222,35 +219,25 @@ void check(const char* fixture,Fixture mode,bool search=true) {
  std::cout<<fixture<<": "<<programs<<" programs, "<<rejected<<" undefined-local rejections\n";
 }
 // A grammar whose traversals nest deeper than the resident capacity is
-// declined at admission; the search then reruns on the native representation
-// with host reproduction, exactly as native_fallback_config describes.
+// rejected at admission on both owners, before any generation runs.
 void check_declined(const char* fixture) {
  const auto compiled=std::make_shared<const grammar::CompiledGrammar>(grammar::compile_grammar(
      grammar::load_definition(std::string(GAGP_REPOSITORY_ROOT "/")+fixture)));
  const auto cases=cli_detail::decode_fitness_cases_json(cli_detail::JsonParser(cases_json(*compiled),{true,64}).parse());
  EvolutionConfig cfg;cfg.population_size=32;cfg.generations=3;cfg.seed=11;cfg.elite_count=1;cfg.mutation_rate=0.3;
- cfg.compiled_grammar=compiled;cfg.generation_request=grammar::entry_request(*compiled);
- cfg.mutation_subtree_prob=1;cfg.fuel=compiled->execution_limits().fuel;cfg.penalty=1000;cfg.gpu_blocksize=32;
- cfg.phase_population=true;cfg.gpu_phase_site_depth=7;cfg.phase_variation={PhaseSiteDraw::Counted,PhaseSiteScope::Genome,0.9,8};
+ cfg.compiled_grammar=compiled;cfg.fuel=compiled->execution_limits().fuel;cfg.penalty=1000;cfg.gpu_blocksize=32;
+ cfg.gpu_phase_site_depth=7;cfg.phase_variation={PhaseSiteDraw::Counted,PhaseSiteScope::Genome,0.9,8};
  cfg.phase_schedule=PhaseSchedulePolicy{PhaseScheduleMode::SteadyState,2,32};
  for(const bool gpu:{false,true}) {
   auto run=cfg;
   run.eval_engine=gpu?EvalEngine::GPU:EvalEngine::CPU;
-  run.reproduction_backend=gpu?ReproductionBackend::Gpu:ReproductionBackend::Cpu;
   const auto label=std::string(fixture)+(gpu?" GPU":" CPU");
-  const auto result=evolve_population(cases,run);
-  require(result.resident_declined.find("lowering capacity")!=std::string::npos,label+": resident engine was not declined: "+result.resident_declined);
-  require(result.reproduction_profile.rfind("resident-",0)!=0,label+": declined run used a resident owner");
-  const auto native=native_fallback_config(run);
-  require(!native.phase_population.value_or(true) && !native.gpu_phase_site_depth && !native.phase_variation && !native.phase_schedule &&
-      native.reproduction_backend==ReproductionBackend::Cpu && native.eval_engine==run.eval_engine,label+": fallback config");
-  const auto direct=evolve_population(cases,native);
-  require(direct.resident_declined.empty(),label+": native run reported a decline");
-  const auto a=trace(result),b=trace(direct);
-  require(!a.asts.empty() && a.asts==b.asts && a.fitness==b.fitness && a.best==b.best,label+": fallback differs from the native search");
-  for(const auto& member:result.final_population)grammar::require_membership(*compiled,member.genome);
+  std::string error;
+  try{(void)evolve_population(cases,run);}catch(const std::invalid_argument& e){error=e.what();}
+  require(error.find("resident engine cannot admit")!=std::string::npos &&
+      error.find("lowering capacity")!=std::string::npos,label+": admission did not fail with the reason: "+error);
  }
- std::cout<<fixture<<": declined, native fallback identical on CPU and GPU evaluation\n";
+ std::cout<<fixture<<": rejected at admission on CPU and GPU\n";
 }
 }  // namespace
 

@@ -4,7 +4,7 @@
 #include <stdexcept>
 
 #include "gagp/evolution/grammar/generate.hpp"
-#include "gagp/evolution/grammar/variation_contract.hpp"
+#include "gagp/evolution/grammar/membership.hpp"
 #include "gagp/evolution/grammar/values.hpp"
 #include "gagp/evolution/compiler.hpp"
 #include "gagp/evolution/repro/pack.hpp"
@@ -47,7 +47,7 @@ void check_input_write() {
               {"control":"block_nil()->Block","type":"Float","args":[]}]}]}]}}]}]
   })"));
   const auto generated = generate_derivation(grammar, 7);
-  (void)analyze_variation(grammar, generated.genome);
+  require_membership(grammar, generated.genome);
   const auto verified = verify_ast(generated.genome.ast, {{"x", RType::Float}});
   check(verified.ok, "input write produced an invalid AST");
   const auto code = compile_for_eval(generated.genome, verified.verified, {"x"});

@@ -22,8 +22,7 @@ column exists.
 | `cpp/include/gagp/` | Public headers, grouped like `cpp/src` |
 | `cpp/src/cli/` | The `gagp` program: commands, task and search files, JSON codecs |
 | `cpp/src/evolution/` | ASTs, verification, compilation, population initialization, the evolution loop |
-| `cpp/src/evolution/grammar/` | Grammar loading, compilation, generation, membership and variation |
-| `cpp/src/evolution/repro/backend.cpp` | Host reproduction of native AST populations |
+| `cpp/src/evolution/grammar/` | Grammar loading, compilation, generation and membership |
 | `cpp/src/evolution/repro/gpu/` | The resident engine: GPU and CPU-reference phase populations |
 | `cpp/src/runtime/` | Bytecode verification and bounded-region plans |
 | `cpp/src/runtime/cpu/` | The CPU interpreter, builtins and fitness |

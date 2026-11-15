@@ -78,10 +78,9 @@ IDs and are meaningful only with the grammar identity.
 Crossover compatibility is exact: two sites match only when they share the
 nonterminal, enclosing template/slot, result type, category, formal scope and
 available ordinary locals. Every alternative takes part in generation, mutation
-donors and membership with the same weights. Explicitly selected reproduction
-profiles may use different reproducible RNG streams and site sampling, with their
-support and operator contract declared in `docs/design/gpu-reproduction.md`;
-grammar membership is not relaxed by that choice.
+and membership with the same weights. The resident engine's random streams and
+site sampling are declared in `spec/search_config.md` and
+`docs/design/gpu-reproduction.md`. They never relax grammar membership.
 
 A scope is an ordered array of `{name,type}` bindings. Binding names match
 `[A-Za-z_][A-Za-z0-9_]*`; duplicates and lexical shadowing are rejected. A reference
@@ -168,8 +167,7 @@ it uses `minimum + fraction * (maximum-minimum)`. A result rounded to the upper
 endpoint is replaced by the adjacent Float toward the minimum; a result below
 the minimum is clamped to the minimum. This defines finite, reproducible samples
 even for the full finite binary64 interval and adjacent/subnormal endpoints.
-GPU scalar mutation samples this interval on-device without a finite host
-proposal table. This range constructor does not imply additive perturbation.
+This range constructor does not imply additive perturbation.
 
 An optional positive finite `quantization_scale` applies
 `round(sample * scale) / scale` after interval sampling, with ties away from zero
@@ -205,18 +203,15 @@ sequences. GPU preparation retains outer grammar identity while flattening the
 scalar sampler into its cached range/value descriptor. Default domains retain
 their original draws and membership behavior.
 
-A constant domain may declare `mutation: "resample"` (the default), `"keep"`, or
-`"flip"`. This controls only the selected logical constant mutation, not initial
-generation, subtree donors, membership, or candidate selection. `keep` is an
-accepted unchanged child: it remains eligible for selection and does not trigger
-subtree regeneration or count as fallback/rejection. `flip` requires a Bool domain
-containing both `false` and `true`, and complements the selected value without a
-replacement draw. Repeated occurrences of one logical constant change atomically;
-fixed template constants remain ineligible. CPU and GPU apply the same policies.
-GPU `keep` needs no value/proposal table and preserves existing payload roots.
-Unknown policies, non-Bool or one-sided `flip`, and `mutation` declarations inside
-`sample_from` or sequence element domains are rejected. Policy is part of grammar
-identity and replay; concrete constant artifacts cannot carry a mutation policy.
+A constant domain may declare a constant mutation policy: `mutation: "resample"`
+(the default), `"keep"`, `"flip"`, or an additive object (below). `flip` requires
+a Bool domain containing both `false` and `true`. Unknown policies, non-Bool or
+one-sided `flip`, and `mutation` declarations inside `sample_from` or sequence
+element domains are rejected. Policy is part of grammar identity, and concrete
+constant artifacts cannot carry a mutation policy. The search has no separate
+constant mutation operator. Mutation replaces a whole subtree and draws its
+constants from their domains, so a policy is validated and hashed but changes
+neither generation, membership nor search results.
 
 Numeric range domains also accept a mutation object, for example:
 
@@ -226,32 +221,13 @@ Numeric range domains also accept a mutation object, for example:
  "mutation":{"kind":"add","range":[-1,1],"gpu_grid_steps":65535}}
 ```
 
-The mutation object's `range` describes an additive delta with the same type as
-the outer domain. Int endpoints use canonical decimal strings and are sampled
-uniformly, inclusively; Float endpoints are finite JSON numbers and use the same
-continuous half-open sampler as Float construction (including exact singleton
-ranges). The result is added to the current value without quantization or
-resampling from `sample_from`. This requires numeric range membership; finite
-membership sets and quantized outer Float ranges are rejected. Construction may
-still use a quantized `sample_from` domain.
-
+The mutation object's `range` is an additive delta with the same type as the
+outer domain. Int endpoints are canonical decimal strings and Float endpoints
+are finite JSON numbers, in ascending order. The object requires numeric range
+membership. Finite membership sets and quantized outer Float ranges are
+rejected, while construction may still use a quantized `sample_from` domain.
 Optional `gpu_grid_steps` is Float-only and must be an integer in
-`[1,4294967295]`. CPU deltas remain continuous; GPU deltas instead select an
-equally weighted integer index `i` in `[0,steps]` and interpolate the closed
-delta range using `i/steps`. Both endpoints are included, multiplication and
-addition round separately, and overflowing interval width uses the weighted
-endpoint form. Thus `[-1,1]` with 65535 steps has 65536 equally weighted indices,
-including both endpoints and no zero. This is not rounding a continuous draw;
-it preserves a distinct declared GPU sampling law. Omission uses continuous
-sampling on both backends. Backend policy and grid size participate in grammar
-identity and replay.
-
-Signed Int overflow, nonfinite Float sums, and sums outside the outer membership
-range retain the previous value as an accepted unchanged result. They do not
-clamp to an endpoint, retry the draw, fall back to subtree mutation, or count as
-acceptance rejection. The original value must already satisfy membership. Each
-selected logical constant uses one delta, shared by all of its lowered copies;
-fixed constants and independent logical origins are unaffected.
+`[1,4294967295]`. The delta range and grid size participate in grammar identity.
 
 `sequence` contains exactly `length` and `element`. `length` is a pair of inclusive
 integer endpoints in `[0,65536]`, in ascending order. `element` is a constant
@@ -269,17 +245,6 @@ times its element bound. This bounds construction; it neither changes runtime
 payload semantics nor reports actual allocator memory. Fixed template constants
 still require singleton `values`. Saved AST constants remain concrete singleton
 encodings, never domain generators.
-
-CPU constant mutation samples the domain directly. GPU preparation samples fresh
-sequence proposals, one per population member per sequence domain, from the full
-declared domain and preparation seed. Device mutation selects and installs a
-proposal. Shared proposals can correlate children; backend RNG trajectories are
-not required to match. They are preparation-local, not a run-level restricted
-grammar. Live immutable proposal snapshots retain payload roots across overlap.
-Preparation rejects more than one million total values or a sequence expansion
-bound above 256 MiB before sampling; it never truncates a domain or switches GPU
-reproduction to CPU. Finite values and integer-range tables retain their existing
-cached behavior and RNG consumption.
 
 ## Templates and fixed regions
 
@@ -325,8 +290,8 @@ nonmaterialized primitives cannot own a charge.
 A charge is validated and participates in grammar identity (the content
 hash); it never changes program ASTs or execution fuel, and the search does
 not budget it: search limits, generation feasibility and variation limits
-count physical nodes and depth only. Its one effect is an admission decline
-of the resident GPU engine, described in
+count physical nodes and depth only. Its one effect is that the resident
+engine may reject the grammar at admission, as described in
 [GPU reproduction](../docs/design/gpu-reproduction.md#genome-layouts).
 
 Compilation is bounded to 4,096 nonterminals, 4,096 templates, 65,536 productions,
@@ -725,10 +690,10 @@ bindings are permitted. The returned scope mapping indexes required bindings int
 caller's ordered environment, preserving lexical identity without type-only matching.
 Global input/local declarations remain those of the compiled grammar. Native verification
 still checks their actual availability in the materialized program. Actual bound-value
-execution is supported within materialized lexical regions. A standalone request
-that consumes an external binding requires a materialization frame; generation
-rejects such a reference when no frame supplies it. Scoped rules that do not consume
-a bound value can still be generated and their scope contracts are retained.
+execution is supported within materialized lexical regions. Generation rejects a
+standalone request that consumes an external binding, because no bound value
+exists in that request. Scoped rules that do not consume a bound value can still
+be generated and their scope contracts are retained.
 
 Generation, genome-generation and population-initialization overloads consume the same
 request. Membership has a corresponding request-aware overload; its default overload
@@ -736,39 +701,21 @@ checks the grammar entry and full limits. Executability preflight follows the re
 nonterminal, so an unrelated unsupported default entry does not block another executable
 request. All recursive production choices remain within that request's structural budget.
 
-CPU subtree mutation and GPU donor preparation build donor requests through one
-shared constructor. Both still require native verification and membership for
-accepted children.
-
 Generated artifacts record `request` with `nonterminal`, `type`, `visible_environment`
 and `scope_mapping`. The request
 budget is the artifact's `search_limits`. Exact replay
 reconstructs the request and validates the complete rematerialized artifact, including
 scope mapping and requested return type. Materialized execution still checks native
 validity independently of generation provenance. Immutable genome provenance retains
-the complete request for later constrained variation.
+the complete request.
 
-### Contextual lexical variation
+### Lexical variation
 
-Variation reconstructs each selected nonterminal's ordered formal binder environment
-from the compiled scope mappings and the materialized regions. Each physical
-occurrence retains its own native IDs. Compatibility compares the formal contract,
-exact types and available ordinary locals; physical binder IDs do not make otherwise
-equivalent sites incompatible. A shared logical hole is replaced at all occurrences,
-with captured references mapped separately for each occurrence. Introduced donor
-binders are alpha-renamed as needed, including collisions with destination captures.
-
-An isolated donor frame may supply native binder IDs aligned with its request's
-visible environment. IDs must be unique, valid and disjoint from declarations inside
-the donor. Generation reserves those IDs when allocating new region bindings.
-Private verification and lowering project captured references onto fresh temporary
-input names without changing node positions. This projection includes external
-lexical captures in bounded-region parameter metadata, not just REGION_VAR nodes.
-Captures of bindings introduced inside the donor remain lexical; both lexical
-region declarations and bounded phase declarations must be disjoint from the
-external frame IDs. The stored donor retains REGION_VAR nodes and lexical capture
-metadata and requires its frame; this does not extend the standalone artifact
-input contract or permit unbound references in materialized execution.
+The resident engine numbers `let` binders statically. Every nonterminal is entered
+under exactly one binder environment, so a varied subtree keeps the binder IDs of
+its site and is never renamed. A bounded-region phase varies within the phase's own
+scope. A grammar that reaches a nonterminal under two binder environments is
+rejected at [admission](../docs/design/gpu-reproduction.md#genome-layouts).
 
 
 The v2 primitive catalog also supplies `check_int(Int)->Int` and

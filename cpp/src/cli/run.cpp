@@ -35,7 +35,6 @@ using Json = JsonValue;
 // phase population, steady state with the whole population as batch.
 constexpr const char* kDefaultSearch = R"({
   "format": "gagp-search-config-v1",
-  "representation": "resident",
   "population_size": 1024,
   "generations": 64,
   "selection": {"method": "tournament", "size": 2},
@@ -46,17 +45,6 @@ constexpr const char* kDefaultSearch = R"({
   "limits": {"site_depth": 7},
   "ranking": {"tie_break": "ast_nodes"},
   "schedule": {"mode": "steady_state", "replacement_size": 2}
-})";
-// The same search for the native AST representation, which has no phase
-// sites, site-depth limit or phase schedule (generational).
-constexpr const char* kDefaultNativeSearch = R"({
-  "format": "gagp-search-config-v1",
-  "representation": "native_ast",
-  "population_size": 1024,
-  "generations": 64,
-  "selection": {"method": "tournament", "size": 2},
-  "elitism": 1,
-  "mutation": {"probability": 0.3}
 })";
 // Both engines reduce case scores in the same lane order; this keeps the GPU
 // and CPU reference results bit-identical.
@@ -280,23 +268,18 @@ int run_task_command(const std::vector<std::string>& argv) {
 
   evo::EvolutionConfig cfg;
   cfg.eval_engine = args.engine == "gpu" ? evo::EvalEngine::GPU : evo::EvalEngine::CPU;
-  cfg.reproduction_backend = args.engine == "gpu" ? evo::repro::ReproductionBackend::Gpu
-                                                  : evo::repro::ReproductionBackend::Cpu;
   cfg.gpu_blocksize = kReductionLanes;
   cfg.compiled_grammar = grammar;
-  cfg.generation_request = gg::entry_request(*grammar);
   cfg.fuel = static_cast<int>(grammar->execution_limits().fuel);
   cfg.penalty = task.case_cap;
   cfg.fitness_policy = task.fitness;
   cfg.selection_pressure = 2;
   cfg.elite_count = 1;
   cfg.mutation_rate = .3;
-  cfg.mutation_subtree_prob = 1;
   cfg.skip_final_eval = false;
   cfg.retain_final_population = true;
   const auto search = args.search_path.empty() ? SearchConfig{} : load_search_config(args.search_path);
-  const bool native = search.phase_population == false;
-  apply_search_config(parse_search_config(JsonParser(native ? kDefaultNativeSearch : kDefaultSearch).parse()), cfg);
+  apply_search_config(parse_search_config(JsonParser(kDefaultSearch).parse()), cfg);
   apply_search_config(search, cfg);
   if (args.population) cfg.population_size = *args.population;
   if (args.generations) cfg.generations = *args.generations;
@@ -325,22 +308,17 @@ int run_task_command(const std::vector<std::string>& argv) {
   Json summary = obj({{"format", str("gagp-run-v1")}, {"task", str(task.name)}, {"engine", str(args.engine)},
       {"population", num(cfg.population_size)}, {"generations", num(cfg.generations)},
       {"seed", str(std::to_string(cfg.seed))}, {"train_cases", num(cases.size())},
-      {"search", effective_search_config(result.resident_declined.empty() ? cfg : evo::native_fallback_config(cfg))},
+      {"search", effective_search_config(cfg)},
       {"best", obj({{"fitness", num(best.fitness)}, {"wrong", num(best.wrong)},
                     {"nodes", num(best.genome.ast.nodes.size())}, {"text", str(cli_detail::program_text(best.genome.ast))},
                     {"program", program_json(best.genome.ast)}})},
       {"history", arr(std::move(history))},
       {"time_ms", obj({{"total", num(wall_ms)}, {"search", num(result.timing.total_ms)},
                        {"initialization", num(result.timing.init_population_ms)}})}});
-  if (!result.resident_declined.empty())
-    summary.object_v["resident_declined"] = str(result.resident_declined);
   if (!task.test_path.empty())
     summary.object_v["test"] = judge(best.genome, load_fitness_cases(task.test_path), task, cfg.fuel);
 
   if (!args.quiet) {
-    if (!result.resident_declined.empty())
-      std::fprintf(stderr, "resident engine declined this grammar (%s); ran the native representation "
-                   "with host reproduction instead\n", result.resident_declined.c_str());
     std::fprintf(stderr, "best fitness %.6g, wrong %d of %zu train cases, %zu nodes; %.1f s\n", best.fitness, best.wrong,
                  cases.size(), best.genome.ast.nodes.size(), wall_ms / 1000);
     const std::string& text = summary.object_v.at("best").object_v.at("text").string_v;

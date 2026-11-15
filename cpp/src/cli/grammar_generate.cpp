@@ -160,7 +160,6 @@ int run_grammar_generate_command(int argc, char** argv) {
   } else {
     evo::EvolutionConfig cfg;
     cfg.compiled_grammar = grammar;
-    cfg.generation_request = evo::grammar::entry_request(*grammar);
     cfg.population_size = static_cast<int>(size);
     cfg.seed = seed;
     cfg.fuel = static_cast<int>(grammar->execution_limits().fuel);

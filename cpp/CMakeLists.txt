@@ -95,14 +95,12 @@ add_library(gagp_evolution
   src/evolution/ast_verify.cpp
   src/evolution/ast_type_verify.cpp
   src/evolution/genome.cpp
-  src/evolution/subtree_utils.cpp
   src/evolution/compiler.cpp
   src/evolution/genome_generation.cpp
   src/evolution/selection.cpp
   src/evolution/search_policy.cpp
   src/evolution/repro/gpu/phase_population_cpu.cpp
   src/evolution/repro/pack.cpp
-  src/evolution/repro/backend.cpp
   src/evolution/evolve.cpp
 )
 target_include_directories(gagp_evolution PUBLIC include)
@@ -130,7 +128,6 @@ add_library(gagp_grammar
   src/evolution/grammar/structured.cpp
   src/evolution/grammar/random.cpp
   src/evolution/grammar/request.cpp
-  src/evolution/grammar/frame.cpp
   src/evolution/grammar/budget.cpp
   src/evolution/grammar/resource_charge.cpp
 )
@@ -148,12 +145,6 @@ target_sources(gagp_evolution PRIVATE
   src/evolution/grammar/values.cpp
   src/evolution/grammar/cache.cpp
   src/evolution/grammar/membership.cpp
-  src/evolution/grammar/donor.cpp
-  src/evolution/grammar/variation.cpp
-  src/evolution/grammar/crossover.cpp
-  src/evolution/grammar/mutation.cpp
-  src/evolution/grammar/variation_contract.cpp
-  src/evolution/grammar/variation_cache.cpp
 )
 target_link_libraries(gagp_evolution PUBLIC gagp_grammar)
 
@@ -232,26 +223,6 @@ target_link_libraries(gagp_test_ast_verify_exact_scope PRIVATE gagp_evolution)
 add_test(NAME gagp_test_ast_verify_exact_scope COMMAND gagp_test_ast_verify_exact_scope)
 set_tests_properties(gagp_test_ast_verify_exact_scope PROPERTIES LABELS "contract;property")
 
-add_executable(gagp_test_grammar_variation_contract tests/evolution/test_grammar_variation_contract.cpp)
-target_link_libraries(gagp_test_grammar_variation_contract PRIVATE gagp_evolution)
-add_test(NAME gagp_test_grammar_variation_contract COMMAND gagp_test_grammar_variation_contract)
-set_tests_properties(gagp_test_grammar_variation_contract PROPERTIES LABELS "contract;property")
-
-add_executable(gagp_test_grammar_variation_cache tests/evolution/test_grammar_variation_cache.cpp)
-target_link_libraries(gagp_test_grammar_variation_cache PRIVATE gagp_evolution)
-add_test(NAME gagp_test_grammar_variation_cache COMMAND gagp_test_grammar_variation_cache)
-set_tests_properties(gagp_test_grammar_variation_cache PROPERTIES LABELS "contract;property")
-
-add_executable(gagp_test_grammar_variation_fallback tests/evolution/test_grammar_variation_fallback.cpp)
-target_link_libraries(gagp_test_grammar_variation_fallback PRIVATE gagp_evolution)
-add_test(NAME gagp_test_grammar_variation_fallback COMMAND gagp_test_grammar_variation_fallback)
-set_tests_properties(gagp_test_grammar_variation_fallback PROPERTIES LABELS "contract;property")
-
-add_executable(gagp_test_grammar_reproduction tests/evolution/test_grammar_reproduction.cpp)
-target_link_libraries(gagp_test_grammar_reproduction PRIVATE gagp_evolution)
-add_test(NAME gagp_test_grammar_reproduction COMMAND gagp_test_grammar_reproduction)
-set_tests_properties(gagp_test_grammar_reproduction PROPERTIES LABELS "contract;property;integration")
-
 add_executable(gagp_test_search_config tests/evolution/test_search_config.cpp)
 target_link_libraries(gagp_test_search_config PRIVATE gagp_cli_support)
 add_test(NAME gagp_test_search_config COMMAND gagp_test_search_config)
@@ -262,11 +233,6 @@ target_link_libraries(gagp_test_evolution_pipeline PRIVATE gagp_cpu)
 add_test(NAME gagp_test_evolution_pipeline COMMAND gagp_test_evolution_pipeline)
 set_tests_properties(gagp_test_evolution_pipeline PROPERTIES LABELS "unit;contract;integration")
 
-add_executable(gagp_test_grammar_mutation tests/evolution/test_grammar_mutation.cpp)
-target_link_libraries(gagp_test_grammar_mutation PRIVATE gagp_evolution)
-add_test(NAME gagp_test_grammar_mutation COMMAND gagp_test_grammar_mutation)
-set_tests_properties(gagp_test_grammar_mutation PROPERTIES LABELS "contract;property")
-
 add_executable(gagp_test_grammar_sequence_constants tests/evolution/test_grammar_sequence_constants.cpp)
 target_link_libraries(gagp_test_grammar_sequence_constants PRIVATE gagp_evolution)
 add_test(NAME gagp_test_grammar_sequence_constants COMMAND gagp_test_grammar_sequence_constants)
@@ -275,26 +241,6 @@ add_executable(gagp_test_grammar_numeric_constants tests/evolution/test_grammar_
 target_link_libraries(gagp_test_grammar_numeric_constants PRIVATE gagp_evolution)
 add_test(NAME gagp_test_grammar_numeric_constants COMMAND gagp_test_grammar_numeric_constants)
 set_tests_properties(gagp_test_grammar_numeric_constants PROPERTIES LABELS "contract;property")
-
-add_executable(gagp_test_grammar_crossover tests/evolution/test_grammar_crossover.cpp)
-target_link_libraries(gagp_test_grammar_crossover PRIVATE gagp_evolution)
-add_test(NAME gagp_test_grammar_crossover COMMAND gagp_test_grammar_crossover)
-set_tests_properties(gagp_test_grammar_crossover PROPERTIES LABELS "contract;property")
-
-add_executable(gagp_test_grammar_donor tests/evolution/test_grammar_donor.cpp)
-target_link_libraries(gagp_test_grammar_donor PRIVATE gagp_evolution)
-add_test(NAME gagp_test_grammar_donor COMMAND gagp_test_grammar_donor)
-set_tests_properties(gagp_test_grammar_donor PROPERTIES LABELS "contract;property")
-
-add_executable(gagp_test_grammar_contextual_donor tests/evolution/test_grammar_contextual_donor.cpp)
-target_link_libraries(gagp_test_grammar_contextual_donor PRIVATE gagp_cli_support)
-add_test(NAME gagp_test_grammar_contextual_donor COMMAND gagp_test_grammar_contextual_donor)
-set_tests_properties(gagp_test_grammar_contextual_donor PROPERTIES LABELS "contract;property")
-
-add_executable(gagp_test_grammar_frame tests/evolution/test_grammar_frame.cpp)
-target_link_libraries(gagp_test_grammar_frame PRIVATE gagp_grammar)
-add_test(NAME gagp_test_grammar_frame COMMAND gagp_test_grammar_frame)
-set_tests_properties(gagp_test_grammar_frame PROPERTIES LABELS "contract;property")
 
 add_executable(gagp_test_grammar_witness tests/evolution/test_grammar_witness.cpp)
 target_link_libraries(gagp_test_grammar_witness PRIVATE gagp_cli_support)
@@ -367,14 +313,6 @@ if(GAGP_HAS_CUDA)
   target_link_libraries(gagp_test_fitness_cpu_gpu_parity PRIVATE gagp_cpu gagp_gpu)
   add_test(NAME gagp_test_fitness_cpu_gpu_parity COMMAND gagp_test_fitness_cpu_gpu_parity)
   set_tests_properties(gagp_test_fitness_cpu_gpu_parity
-    PROPERTIES LABELS "gpu;cpu_gpu_parity")
-
-  add_executable(gagp_test_evolution_cpu_gpu_parity
-    tests/parity/test_evolution_cpu_gpu_parity.cpp
-  )
-  target_link_libraries(gagp_test_evolution_cpu_gpu_parity PRIVATE gagp_cpu gagp_gpu)
-  add_test(NAME gagp_test_evolution_cpu_gpu_parity COMMAND gagp_test_evolution_cpu_gpu_parity)
-  set_tests_properties(gagp_test_evolution_cpu_gpu_parity
     PROPERTIES LABELS "gpu;cpu_gpu_parity")
 
 endif()
@@ -693,11 +631,10 @@ target_link_libraries(gagp_test_region_codec PRIVATE gagp_cli_support)
 add_test(NAME gagp_test_region_codec COMMAND gagp_test_region_codec)
 set_tests_properties(gagp_test_region_codec PROPERTIES LABELS "unit;contract")
 
-add_executable(gagp_test_region_splice tests/evolution/test_region_splice.cpp)
-target_include_directories(gagp_test_region_splice PRIVATE src/evolution)
-target_link_libraries(gagp_test_region_splice PRIVATE gagp_cpu)
-add_test(NAME gagp_test_region_splice COMMAND gagp_test_region_splice)
-set_tests_properties(gagp_test_region_splice PROPERTIES LABELS "unit;contract")
+add_executable(gagp_test_region_metadata tests/evolution/test_region_metadata.cpp)
+target_link_libraries(gagp_test_region_metadata PRIVATE gagp_cpu)
+add_test(NAME gagp_test_region_metadata COMMAND gagp_test_region_metadata)
+set_tests_properties(gagp_test_region_metadata PROPERTIES LABELS "unit;contract")
 
 add_executable(gagp_test_grammar_regions tests/evolution/test_grammar_regions.cpp)
 target_link_libraries(gagp_test_grammar_regions PRIVATE gagp_cli_support)
@@ -709,11 +646,6 @@ add_executable(gagp_test_grammar_region_artifacts tests/evolution/test_grammar_r
 target_link_libraries(gagp_test_grammar_region_artifacts PRIVATE gagp_cli_support)
 add_test(NAME gagp_test_grammar_region_artifacts COMMAND gagp_test_grammar_region_artifacts)
 set_tests_properties(gagp_test_grammar_region_artifacts PROPERTIES LABELS "contract;integration")
-
-add_executable(gagp_test_grammar_region_variation tests/evolution/test_grammar_region_variation.cpp)
-target_link_libraries(gagp_test_grammar_region_variation PRIVATE gagp_cli_support)
-add_test(NAME gagp_test_grammar_region_variation COMMAND gagp_test_grammar_region_variation)
-set_tests_properties(gagp_test_grammar_region_variation PROPERTIES LABELS "contract;integration")
 
 add_executable(gagp_test_checked_values tests/evolution/test_checked_values.cpp)
 target_link_libraries(gagp_test_checked_values PRIVATE gagp_cpu)
@@ -739,7 +671,6 @@ find_package(Python3 COMPONENTS Interpreter REQUIRED)
 
 add_executable(gagp_test_source_fuel_preservation tests/evolution/test_source_fuel_preservation.cpp)
 target_link_libraries(gagp_test_source_fuel_preservation PRIVATE gagp_cli_support)
-target_include_directories(gagp_test_source_fuel_preservation PRIVATE src/evolution)
 add_test(NAME gagp_test_source_fuel_preservation COMMAND gagp_test_source_fuel_preservation)
 set_tests_properties(gagp_test_source_fuel_preservation PROPERTIES LABELS "contract;integration")
 
@@ -776,7 +707,6 @@ add_test(NAME gagp_test_bounded_region_typing COMMAND gagp_test_bounded_region_t
 set_tests_properties(gagp_test_bounded_region_typing PROPERTIES LABELS "unit;contract;integration")
 
 add_executable(gagp_test_bounded_region_compile tests/evolution/test_bounded_region_compile.cpp)
-target_include_directories(gagp_test_bounded_region_compile PRIVATE src/evolution)
 target_link_libraries(gagp_test_bounded_region_compile PRIVATE gagp_cpu)
 add_test(NAME gagp_test_bounded_region_compile COMMAND gagp_test_bounded_region_compile)
 set_tests_properties(gagp_test_bounded_region_compile PROPERTIES LABELS "unit;contract;integration")
@@ -807,11 +737,6 @@ add_executable(gagp_test_grammar_bounded_membership tests/evolution/test_grammar
 target_link_libraries(gagp_test_grammar_bounded_membership PRIVATE gagp_cpu)
 add_test(NAME gagp_test_grammar_bounded_membership COMMAND gagp_test_grammar_bounded_membership)
 set_tests_properties(gagp_test_grammar_bounded_membership PROPERTIES LABELS "unit;contract;integration")
-
-add_executable(gagp_test_grammar_bounded_variation tests/evolution/test_grammar_bounded_variation.cpp)
-target_link_libraries(gagp_test_grammar_bounded_variation PRIVATE gagp_cpu)
-add_test(NAME gagp_test_grammar_bounded_variation COMMAND gagp_test_grammar_bounded_variation)
-set_tests_properties(gagp_test_grammar_bounded_variation PROPERTIES LABELS "unit;contract;integration")
 
 add_executable(gagp_test_grammar_bounded_artifact tests/evolution/test_grammar_bounded_artifact.cpp)
 target_link_libraries(gagp_test_grammar_bounded_artifact PRIVATE gagp_cli_support)

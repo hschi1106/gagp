@@ -9,8 +9,7 @@ system is [research-mainline.md](research-mainline.md).
 
 ## Overview
 
-With `representation: resident` (the default of `gagp run`), the population
-lives on the device for the whole run as fixed-shape *phase genes*.
+The population lives on the device for the whole run as fixed-shape *phase genes*.
 Tournament selection, typed subtree crossover, subtree mutation, elitism and
 lowering of changed programs to bytecode all run as GPU kernels, and the GPU
 evaluator reads the lowered programs in place. Only the fitness vector and
@@ -25,13 +24,11 @@ each generation's champion return to the host.
 | layout and admission | `phase_layout.hpp`, `phase_grammar.hpp` | Which grammars and genomes fit, and how they are laid out |
 | generation loops | `cpp/src/evolution/evolve.cpp` (`run_phase_population`, `run_phase_population_steady`) | Ranking, selection fitness, history and export, common to both owners |
 
-A grammar the engine cannot hold is not an error: `evolve_population` reruns
-the same search with `native_fallback_config` (typed AST population, host
-reproduction, the same evaluation engine) and records the reason in
-`EvolutionResult::resident_declined`, which `gagp run` prints and writes to
-`result.json`. Native AST reproduction lives in
-`cpp/src/evolution/repro/backend.cpp`. Only admission declines fall back;
-invalid search policies still fail.
+A grammar or initial genome the engine cannot hold is an error. Owner
+construction rejects it, and `evolve_population` raises `invalid_argument`
+with a message that begins `resident engine cannot admit this grammar or
+initial population:` and names the construct. `gagp run` prints it and exits
+with status 2 without writing a result. No other engine runs instead.
 
 ## Genome layouts
 
@@ -55,7 +52,7 @@ ranges. Whole-program phases may also contain:
 - **`let` binders**, numbered statically: every nonterminal is entered under
   exactly one binder environment, so generation never renumbers. A grammar that
   reaches a nonterminal under two environments, or needs 16 or more binder
-  numbers, is declined.
+  numbers, is rejected.
 - **Traversals** (`traverse`, `traverse_reverse`, `traverse_range`,
   `traverse_range_reverse`), lowered to the native prefix exactly, including
   its aliasing of stored sources and its length facts.
@@ -66,8 +63,8 @@ ranges. Whole-program phases may also contain:
 Templates and holes are zero-node wrappers: a site on a template production
 passes to its first physical node, so production roots must resolve to
 distinct nodes. A hole repeated in its template body is admitted only when its
-fill is fixed. A grammar whose only member is one fixed program uses the
-native fallback, and so does a genome whose fixed template structure carries a
+fill is fixed. A grammar whose only member is one fixed program is rejected,
+and so is a genome whose fixed template structure carries a
 `resource_charge` other than the default (more than one node or depth level,
 or a depth reset).
 
@@ -145,10 +142,8 @@ selection and requires a task metric with wrong counts.
 
 ## Distribution notes
 
-The resident engine is a GP system of its own, not a replay of native AST
-reproduction: tournaments sample with replacement; sites are expression
-nonterminal occurrences within phases; crossover tries at most eight
-compatible sites; mutation uses the remaining whole-program node and phase
-depth budget; fixed template structure is never a site; ties keep source
-order. Results of the two representations are therefore not comparable member
-by member, and every result records its representation.
+The resident engine defines its own operator distributions. Tournaments
+sample with replacement. Sites are expression nonterminal occurrences within
+phases. Crossover tries at most `crossover.attempts` compatible site pairs.
+Mutation uses the remaining whole-program node and phase depth budget. Fixed
+template structure is never a site, and ties keep source order.

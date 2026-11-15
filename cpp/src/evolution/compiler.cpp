@@ -16,7 +16,6 @@
 #include "gagp/evolution/bounded_region.hpp"
 #include "gagp/core/bytecode_verify.hpp"
 #include "gagp/evolution/node_descriptor.hpp"
-#include "subtree_utils.hpp"
 
 namespace gagp::evo {
 

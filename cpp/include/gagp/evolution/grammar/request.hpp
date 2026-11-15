@@ -13,14 +13,6 @@ struct GenerationRequest {
   GrammarLimits budget;
 };
 
-// A mixed population remains a finite set of exact, closed root contracts.
-// Each result type has one root; all roots share physical resource limits.
-void validate_population_requests(const CompiledGrammar& grammar,
-    const std::vector<GenerationRequest>& requests);
-// Resolve ordered user-facing root IDs with the grammar's common search limits.
-std::vector<GenerationRequest> named_population_requests(const CompiledGrammar& grammar,
-    const std::vector<std::string>& root_names);
-
 GenerationRequest entry_request(const CompiledGrammar& grammar);
 // Checks exact type, visible scope, category and budgets; returns required-scope
 // indexes into the supplied environment, preserving its order and identities.

@@ -88,9 +88,10 @@ A constant domain has exactly one of `values`, an Int or Float `range`, or a
 - `sample_from` draws new constants from a narrower domain while membership
   accepts the wider one, so evolved values may drift outside it:
   `{"type": "Float", "range": [-100, 100], "sample_from": {"type": "Float", "range": [-8, 8]}}`.
-- `mutation` chooses how constant mutation changes a value: `"resample"`
-  (default), `"keep"`, `"flip"` (Bool), or
-  `{"kind": "add", "range": ["-2", "2"]}` to perturb a number.
+- `mutation` declares a constant mutation policy: `"resample"` (default),
+  `"keep"`, `"flip"` (Bool), or `{"kind": "add", "range": ["-2", "2"]}`. It is
+  validated and part of the grammar's identity, but the search mutates whole
+  subtrees, so it does not change results.
 
 The package `configs/grammar/packages/source_literals.json` provides ready-made
 literal nonterminals for every type (`Source.Literal.Int`, ...).
@@ -139,11 +140,11 @@ The resident GPU engine holds the population on the device and admits a
 grammar when every program it can derive fits its capacity: at most 2048
 nodes and depth 64 over the whole program, 1024 nodes per varied phase, 16
 locals in statement programs, and up to 8 varied phases around a fixed
-template ([full rules](../design/gpu-reproduction.md#genome-layouts)). A
-grammar outside these limits still runs: `gagp run` prints
-`resident engine declined this grammar (...)` and uses the slower host
-reproduction with the same evaluation engine. Tighter `search_limits` are the
-usual fix.
+template ([full rules](../design/gpu-reproduction.md#genome-layouts)). For a
+grammar outside these limits `gagp run` stops before the search with
+`resident engine cannot admit this grammar or initial population: ...` and
+exits with status 2. The message names the construct that does not fit.
+Tighter `search_limits` are the usual fix.
 
 ## Initial populations
 

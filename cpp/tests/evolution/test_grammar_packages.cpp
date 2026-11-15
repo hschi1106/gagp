@@ -17,14 +17,13 @@
 #include "gagp/evolution/ast_verify.hpp"
 #include "gagp/cli/json.hpp"
 #include "gagp/evolution/compiler.hpp"
-#include "gagp/evolution/crossover.hpp"
+#include "gagp/evolution/evolve.hpp"
 #include "gagp/evolution/grammar/compiled.hpp"
 #include "gagp/evolution/grammar/definition.hpp"
 #include "gagp/evolution/grammar/generate.hpp"
 #include "gagp/evolution/grammar/membership.hpp"
-#include "gagp/evolution/grammar/variation.hpp"
-#include "gagp/evolution/mutation.hpp"
 #include "gagp/evolution/node_descriptor.hpp"
+#include "gagp/runtime/payload/payload.hpp"
 
 using namespace gagp;
 using namespace gagp::evo;
@@ -445,27 +444,48 @@ void check_dp_fuel_contracts(const Loaded& dp1, const Loaded& dp2) {
   }
 }
 
+// A short resident search on the CPU reference owner: every published member,
+// varied by crossover and mutation, stays a grammar member of the package family.
 void exercise_variation(const Loaded& loaded, Family family,
                         const std::string& label) {
-  VariationContext context(loaded.grammar);
-  std::vector<ProgramGenome> population;
-  for (std::uint64_t seed = 0; seed < 4; ++seed)
-    population.push_back(generate_checked(*loaded.grammar, 100 + seed, label));
-  for (std::uint64_t round = 0; round < 12; ++round) {
-    for (std::size_t i = 0; i < population.size(); ++i) {
-      population[i] = mutate(population[i], 1000 + round * 17 + i,
-                             context, 0.8);
-      require_membership(*loaded.grammar, population[i]);
-      check_family(population[i], family, label + " mutation");
+  std::vector<EvalCase> cases;
+  for (int i = 0; i < 12; ++i) {
+    EvalCase row;
+    for (const auto& input : loaded.grammar->inputs()) {
+      if (input.type == RType::Int)
+        row.inputs[input.name] = Value::from_int(i % 5);
+      else if (input.type == RType::IntList)
+        row.inputs[input.name] = payload::make_int_list_value(
+            {Value::from_int(i % 3), Value::from_int(i % 4 - 1), Value::from_int(i)});
+      else
+        throw std::runtime_error(label + ": unexpected package input type");
     }
-    const auto children = crossover(population[round % population.size()],
-        population[(round + 1) % population.size()], 5000 + round, context);
-    require_membership(*loaded.grammar, children.first);
-    require_membership(*loaded.grammar, children.second);
-    check_family(children.first, family, label + " crossover");
-    check_family(children.second, family, label + " crossover");
-    population[round % population.size()] = children.first;
-    population[(round + 1) % population.size()] = children.second;
+    row.expected = Value::from_int(i * (i % 3));
+    cases.push_back(std::move(row));
+  }
+  EvolutionConfig config;
+  config.population_size = 16;
+  config.generations = 4;
+  config.seed = 4242;
+  config.elite_count = 1;
+  config.mutation_rate = 0.8;
+  config.compiled_grammar = loaded.grammar;
+  config.fuel = static_cast<int>(loaded.grammar->execution_limits().fuel);
+  config.penalty = 1000;
+  config.eval_engine = EvalEngine::CPU;
+  config.retain_final_population = true;
+  config.skip_final_eval = false;
+  std::vector<ProgramGenome> parents;
+  for (std::uint64_t seed = 0; parents.size() < 16; ++seed)
+    parents.push_back(generate_checked(*loaded.grammar, 100 + seed, label));
+  const auto result = evolve_population(cases, config, &parents);
+  check(result.final_population.size() == 16, label + ": search lost members");
+  check(result.timing.reproduction_totals.variation.crossover_attempts > 0 &&
+            result.timing.reproduction_totals.variation.mutation_attempts > 0,
+        label + ": search did not vary its population");
+  for (const auto& member : result.final_population) {
+    require_membership(*loaded.grammar, member.genome);
+    check_family(member.genome, family, label + " variation");
   }
 }
 

@@ -10,6 +10,8 @@
 #include "gagp/evolution/evolve.hpp"
 #include "gagp/evolution/grammar/definition.hpp"
 #include "gagp/evolution/grammar/generate.hpp"
+#include "gagp/evolution/grammar/membership.hpp"
+#include "gagp/evolution/grammar/request.hpp"
 #include "gagp/evolution/lifecycle.hpp"
 #include "gagp/evolution/population_init.hpp"
 #include "gagp/evolution/selection.hpp"
@@ -17,12 +19,6 @@
 #include "gagp/runtime/payload/payload.hpp"
 
 namespace {
-
-gagp::evo::ProgramGenome keyed_genome(const char* key) {
-  gagp::evo::ProgramGenome genome;
-  genome.meta.program_key = key;
-  return genome;
-}
 
 std::shared_ptr<const gagp::evo::grammar::CompiledGrammar> timing_grammar() {
   using namespace gagp::evo::grammar;
@@ -67,34 +63,28 @@ int main() {
       {EvalCase{{}, Value::from_int(1)}, EvalCase{{}, Value::from_bool(true)}});
   assert(mixed_expected.expected_return_type == RType::Invalid);
 
-  std::vector<gagp::evo::ProgramGenome> population = {
-      keyed_genome("z"), keyed_genome("a"), keyed_genome("m")};
-  const auto ranked =
-      gagp::evo::rank_population_refs(population, {1.0, 1.0, 2.0});
-  assert(ranked[0].genome->meta.program_key == "m");
-  assert(ranked[1].genome->meta.program_key == "a");
-  assert(ranked[2].genome->meta.program_key == "z");
-  population[0].meta.node_count=9;population[1].meta.node_count=3;population[2].meta.node_count=2;
-  const auto task_rank=gagp::evo::rank_population_refs(population,{0,0,0},true,{1,0,0});
-  assert(task_rank[0].genome==&population[2] && task_rank[1].genome==&population[1]);
-  const auto owned_task=gagp::evo::materialize_scored_population(task_rank);
-  assert(owned_task[0].wrong==0 && owned_task[2].wrong==1);
-  const auto owned = gagp::evo::materialize_scored_population(ranked);
-  assert(owned.size() == ranked.size());
-  assert(owned[0].genome.meta.program_key == "m" && owned[0].fitness == 2.0);
+  // Ranking compares fitness rounded to a 40-bit mantissa.
+  assert(gagp::evo::canonicalize_fitness_for_ranking(1.0) == 1.0);
+  assert(gagp::evo::canonicalize_fitness_for_ranking(1.0 + 0x1p-50) == 1.0);
+  assert(gagp::evo::canonicalize_fitness_for_ranking(-3.5) == -3.5);
 
   gagp::evo::EvolutionConfig config;
-  config.population_size = static_cast<int>(population.size());
+  config.population_size = 3;
   config.compiled_grammar = timing_grammar();
-  config.generation_request =
-      gagp::evo::grammar::entry_request(*config.compiled_grammar);
+  config.fuel = static_cast<int>(config.compiled_grammar->execution_limits().fuel);
+  const auto entry = gagp::evo::grammar::entry_request(*config.compiled_grammar);
   std::vector<gagp::evo::ProgramGenome> replay_population;
-  for (std::uint64_t seed = 0; seed < population.size(); ++seed) {
+  for (std::uint64_t seed = 0; seed < 3; ++seed) {
     replay_population.push_back(gagp::evo::grammar::generate_derivation(
-        *config.compiled_grammar, seed, *config.generation_request).genome);
+        *config.compiled_grammar, seed, entry).genome);
   }
   const auto replay_case_set = gagp::evo::prepare_case_set(
       {EvalCase{{{"x", Value::from_int(0)}}, Value::from_int(0)}});
+  // Without an initial population, initialization generates grammar members.
+  const auto fresh = gagp::evo::initialize_population(config, replay_case_set);
+  assert(!fresh.replayed && fresh.population.size() == 3);
+  for (const auto& member : fresh.population)
+    gagp::evo::grammar::require_membership(*config.compiled_grammar, member);
   const auto replay = gagp::evo::initialize_population(
       config, replay_case_set, &replay_population);
   assert(replay.replayed && replay.population.size() == replay_population.size());
@@ -111,13 +101,11 @@ int main() {
   }
 
   gagp::evo::EvaluationTiming eval_a;
-  eval_a.cpu_compile_ms = 2.0;
   eval_a.gpu_eval_pack_ms = 3.0;
   eval_a.gpu_eval_upload_ms = 5.0;
   gagp::evo::EvaluationTiming eval_total;
   gagp::evo::accumulate_timing(&eval_total, eval_a);
   gagp::evo::accumulate_timing(&eval_total, eval_a);
-  assert(eval_total.cpu_compile_ms == 4.0);
   assert(eval_total.gpu_eval_pack_upload_ms() == 16.0);
   assert(eval_total.gpu_eval_kernel_ms == 0.0);
 
@@ -127,9 +115,6 @@ int main() {
   repro_a.variation.crossover_attempts = 1;
   repro_a.variation.mutation_attempts = 2;
   repro_a.variation.contract_rejections = 3;
-  repro_a.variation.budget_rejections = 4;
-  repro_a.variation.generation_rejections = 5;
-  repro_a.variation.acceptance_rejections = 6;
   repro_a.variation.fallback_children = 7;
   repro_a.variation.unchanged_children = 8;
   repro_a.variation.changed_children = 9;
@@ -142,9 +127,6 @@ int main() {
   assert(repro_total.variation.crossover_attempts == 2);
   assert(repro_total.variation.mutation_attempts == 4);
   assert(repro_total.variation.contract_rejections == 6);
-  assert(repro_total.variation.budget_rejections == 8);
-  assert(repro_total.variation.generation_rejections == 10);
-  assert(repro_total.variation.acceptance_rejections == 12);
   assert(repro_total.variation.fallback_children == 14);
   assert(repro_total.variation.unchanged_children == 16);
   assert(repro_total.variation.changed_children == 18);
@@ -167,43 +149,52 @@ int main() {
   timing_config.seed = 17;
   timing_config.skip_final_eval = true;
   timing_config.compiled_grammar = timing_grammar();
-  timing_config.generation_request =
-      gagp::evo::grammar::entry_request(*timing_config.compiled_grammar);
+  timing_config.fuel = static_cast<int>(timing_config.compiled_grammar->execution_limits().fuel);
   const std::vector<EvalCase> timing_cases = {
       EvalCase{{{"x", Value::from_int(0)}}, Value::from_int(0)},
       EvalCase{{{"x", Value::from_int(1)}}, Value::from_int(1)},
   };
   const auto timed = gagp::evo::evolve_population(timing_cases, timing_config);
   assert(timed.timing.generations.size() == 2);
-  double cpu_compile_sum = 0.0;
-  double selection_sum = 0.0;
+  assert(timed.reproduction_profile.rfind("resident-cpu-", 0) == 0);
+  long long crossover_attempts = 0;
   for (const auto& generation : timed.timing.generations) {
-    cpu_compile_sum += generation.evaluation.cpu_compile_ms;
-    selection_sum += generation.reproduction.selection_ms;
-    assert(generation.evaluation.gpu_compile_ms == 0.0);
+    crossover_attempts += generation.reproduction.variation.crossover_attempts;
     assert(generation.evaluation.gpu_eval_call_ms == 0.0);
     assert(generation.evaluation.gpu_eval_kernel_ms == 0.0);
   }
-  assert(timed.timing.evaluation_totals.cpu_compile_ms == cpu_compile_sum);
   assert(timed.timing.evaluation_totals.gpu_eval_call_ms == 0.0);
-  assert(timed.timing.reproduction_totals.selection_ms == selection_sum);
+  assert(timed.timing.reproduction_totals.variation.crossover_attempts == crossover_attempts);
   timing_config.skip_final_eval=false;timing_config.generations=5;timing_config.elite_count=1;
   timing_config.fitness_policy={gagp::FitnessMetric::Absolute,gagp::FitnessProximity::Discounted};
   const auto elitist=gagp::evo::evolve_population(timing_cases,timing_config);
   for(std::size_t i=1;i<elitist.history_best_fitness.size();++i)
     assert(elitist.history_best_fitness[i]>=elitist.history_best_fitness[i-1]);
   assert(elitist.best.fitness>=elitist.history_best_fitness.back());
-  // Site policy errors are validated before device initialization, even in
+  // Configuration errors are rejected before device initialization, even in
   // CPU-only builds.
-  auto rejects=[&](const gagp::evo::EvolutionConfig& cfg,const char* message) {
+  auto rejects=[&](const gagp::evo::EvolutionConfig& cfg,const char* message,
+      const std::vector<gagp::evo::ProgramGenome>* initial=nullptr) {
     bool rejected=false;
-    try{(void)gagp::evo::evolve_population(timing_cases,cfg);}
+    try{(void)gagp::evo::evolve_population(timing_cases,cfg,initial);}
     catch(const std::invalid_argument& error){rejected=std::string(error.what()).find(message)!=std::string::npos;}
     assert(rejected);
   };
-  auto bad_site=timing_config;bad_site.gpu_phase_site_depth=7;
-  rejects(bad_site,"site policy requires resident GPU");
-  bad_site.gpu_phase_site_depth=16;rejects(bad_site,"invalid GPU phase site depth");
+  auto bad_site=timing_config;bad_site.gpu_phase_site_depth=16;
+  rejects(bad_site,"invalid GPU phase site depth");
+  // Fuel may lower the grammar's execution fuel but never raise it.
+  auto wrong_fuel=timing_config;++wrong_fuel.fuel;
+  rejects(wrong_fuel,"fuel");
+  // An imported program outside the grammar is rejected before evaluation.
+  std::vector<gagp::evo::ProgramGenome> invalid_population;
+  for (std::uint64_t seed = 0; invalid_population.size() < 4; ++seed) {
+    auto genome = gagp::evo::grammar::generate_derivation(*timing_config.compiled_grammar, 400 + seed, entry).genome;
+    if (!genome.ast.consts.empty() || invalid_population.size() < 3) invalid_population.push_back(std::move(genome));
+  }
+  invalid_population.back().ast.consts.front() = Value::from_int(999);
+  invalid_population.back().meta = gagp::evo::build_genome_meta(invalid_population.back().ast);
+  invalid_population.back().derivation.reset();
+  rejects(timing_config,"",&invalid_population);
   timing_config.elite_count=timing_config.population_size;
   bool bad_elites=false;
   try{(void)gagp::evo::evolve_population(timing_cases,timing_config);}catch(const std::invalid_argument&){bad_elites=true;}

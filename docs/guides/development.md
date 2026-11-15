@@ -53,8 +53,7 @@ The most important checks for engine changes:
 - `gagp_test_phase_population_cpu_reference`: the GPU resident engine and the
   CPU reference engine produce identical populations, fitness values and
   champions;
-- `gagp_test_fitness_cpu_gpu_parity` and `gagp_test_evolution_cpu_gpu_parity`:
-  the CPU and GPU evaluators agree;
+- `gagp_test_fitness_cpu_gpu_parity`: the CPU and GPU evaluators agree;
 - `gagp_test_cli`: the command-line contract.
 
 `tests/repository` checks the documentation: relative links resolve, the

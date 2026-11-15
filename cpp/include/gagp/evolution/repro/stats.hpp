@@ -5,11 +5,6 @@
 namespace gagp::evo::repro {
 
 struct ReproductionStats {
-
-  double selection_ms = 0.0;
-  double crossover_ms = 0.0;
-  double mutation_ms = 0.0;
-  double preprocess_ms = 0.0;
   double setup_ms = 0.0;
   double upload_ms = 0.0;
   double kernel_ms = 0.0;

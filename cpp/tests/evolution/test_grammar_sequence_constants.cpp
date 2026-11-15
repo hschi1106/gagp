@@ -7,8 +7,6 @@
 #include "gagp/evolution/grammar/membership.hpp"
 #include "gagp/evolution/grammar/random.hpp"
 #include "gagp/evolution/grammar/values.hpp"
-#include "gagp/evolution/grammar/variation.hpp"
-#include "gagp/evolution/mutation.hpp"
 #include "gagp/runtime/payload/payload.hpp"
 
 using namespace gagp;
@@ -76,7 +74,7 @@ void test_domains() {
       R"({"type":"StringList","sequence":{"length":[65536,65536],"element":{"type":"String","sequence":{"length":[65536,65536],"element":{"type":"Char","values":["a"]}}}}})"})
     rejects([&] { (void)parse_constant_domain(json(text)); });
 }
-void test_generation_variation_and_proposals() {
+void test_generation_and_proposals() {
   const std::vector<std::string> domains{strings,
       R"({"type":"IntList","sequence":{"length":[0,5],"element":{"type":"Int","range":["-2","2"]}}})",
       R"({"type":"FloatList","sequence":{"length":[0,5],"element":{"type":"Float","values":[-1.25,0,2.5]}}})",
@@ -87,20 +85,18 @@ void test_generation_variation_and_proposals() {
   for (const auto& text : domains) {
     const auto grammar = compile(text);
     const auto& domain = grammar->constants().front();
-    for (double subtree : {0.0, 1.0}) {
-      VariationContext context(grammar);
-      auto parent = generate_derivation(*grammar, 42).genome;
-      const auto replay = generate_derivation(*grammar, 42).genome;
-      check(encoding(value(parent)) == encoding(value(replay)), "sequence seed replay changed");
-      for (unsigned seed = 0; seed < 64; ++seed) {
-        parent = mutate(parent, seed, context, subtree);
-        require_membership(*grammar, parent);
-        check(constant_domain_contains(domain, value(parent)), "sequence mutation escaped its domain");
-        check(encoding(decode_constant(encode_constant(value(parent)))) == encoding(value(parent)), "concrete payload artifact changed");
-      }
-      check(context.counters().changed_children > 0 && context.counters().acceptance_rejections == 0,
-          "sequence mutation fell back or never changed");
+    const auto first = generate_derivation(*grammar, 42).genome;
+    const auto replay = generate_derivation(*grammar, 42).genome;
+    check(encoding(value(first)) == encoding(value(replay)), "sequence seed replay changed");
+    std::set<std::string> seen;
+    for (unsigned seed = 0; seed < 64; ++seed) {
+      const auto generated = generate_derivation(*grammar, seed).genome;
+      require_membership(*grammar, generated);
+      check(constant_domain_contains(domain, value(generated)), "generated sequence escaped its domain");
+      check(encoding(decode_constant(encode_constant(value(generated)))) == encoding(value(generated)), "concrete payload artifact changed");
+      seen.insert(encoding(value(generated)));
     }
+    check(seen.size() > 1, "sequence generation never varied its constant");
     auto forged = generate_derivation(*grammar, 4).genome;
     forged.derivation.reset();
     forged.ast.consts.at(forged.ast.nodes[3].i0) = domain.type == RType::String
@@ -110,7 +106,7 @@ void test_generation_variation_and_proposals() {
 }
 } // namespace
 int main() {
-  try { test_domains(); test_generation_variation_and_proposals(); }
+  try { test_domains(); test_generation_and_proposals(); }
   catch (const std::exception& error) { std::cerr << error.what() << '\n'; return 1; }
-  std::cout << "sequence constants: full support, typed boundaries, replay and variation passed\n";
+  std::cout << "sequence constants: full support, typed boundaries, replay and generation passed\n";
 }

@@ -128,7 +128,7 @@ options and settings are in the [command reference](../reference/cli.md).
 | The build is killed | Use fewer build jobs, for example `-j 2` |
 | A grammar is rejected | Run `gagp grammar validate` and follow the reported field; compare with the examples in `configs/grammar/examples/` |
 | Case inputs do not match the grammar | Input names and types in the cases must equal the grammar's `inputs`, and the expected type its entry type |
-| The run prints `resident engine declined this grammar` | The grammar exceeds the GPU engine's capacity; the run continues correctly but more slowly ([details](../reference/cli.md#representations)) |
+| The run fails with `resident engine cannot admit this grammar` | The grammar exceeds the resident engine's capacity. Tighten its `search_limits` ([details](grammar-authoring.md#making-the-gpu-engine-take-the-grammar)) |
 | A specific GPU should be used | Set `GAGP_CUDA_DEVICE=N`; by default the least used GPU is chosen |
 
 A short search that does not solve a problem is not an error: try a larger

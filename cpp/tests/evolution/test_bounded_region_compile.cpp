@@ -9,7 +9,6 @@
 #include "gagp/evolution/bounded_region.hpp"
 #include "gagp/evolution/repro/pack.hpp"
 #include "gagp/runtime/cpu/execute_bytecode_cpu.hpp"
-#include "subtree_utils.hpp"
 
 namespace {
 using namespace gagp;
@@ -169,19 +168,6 @@ void check_direct_plan_equality() {
   require(valid_changes > 20 && rejected_changes > 10, "plan comparison oracle coverage is too small");
 }
 
-void check_splice_ownership() {
-  const auto donor = captured_counter();
-  auto base = counter();
-  const auto replaced = subtree::replace_subtree(base, 3, 13, donor, 3, 13);
-  require(replaced.bounded_region_specs.size() == 1, "splice lost region metadata");
-  require(replaced.bounded_region_specs[0].phases[0].bindings[0].binder_id != 0,
-      "splice did not freshen phase binder against base");
-  require(replaced.nodes[6].i0 == replaced.bounded_region_specs[0].phases[0].bindings[0].binder_id,
-      "splice did not rewrite phase variable");
-  const auto bytecode = compile(replaced);
-  require(execute_bytecode_cpu(bytecode, {{bytecode.var2idx.at("cap"), Value::from_int(7)}}, 100).value.i == 10,
-      "splice changed region result");
-}
 }  // namespace
 
 int main() {
@@ -189,7 +175,6 @@ int main() {
     check_direct_plan_equality();
     check_counter_and_fuel();
     check_capture_and_compaction();
-    check_splice_ownership();
     std::cout << "bounded region compile: OK\n";
   } catch (const std::exception& error) {
     std::cerr << error.what() << '\n';

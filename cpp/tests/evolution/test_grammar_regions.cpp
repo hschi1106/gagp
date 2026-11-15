@@ -13,8 +13,6 @@
 #include "gagp/evolution/grammar/definition.hpp"
 #include "gagp/evolution/grammar/generate.hpp"
 #include "gagp/evolution/grammar/membership.hpp"
-#include "gagp/evolution/grammar/donor.hpp"
-#include "../../src/evolution/grammar/variation_internal.hpp"
 #include "gagp/runtime/cpu/execute_bytecode_cpu.hpp"
 
 using namespace gagp;
@@ -110,18 +108,6 @@ void check_generation_contract(const CompiledGrammar& grammar,
   check(execute_int(grammar, generated.genome) == expected,
         "generated region program returned the wrong value");
   check_global_binder_ids(generated.genome.ast);
-  const auto analysis = analyze_variation(grammar, generated.genome);
-  for (const auto& site : analysis.sites) {
-    const auto donor = generate_donor(grammar, 42, site);
-    const auto projected = project_frame(grammar, donor_request(site), donor.frame, donor.genome.ast);
-    check(static_cast<bool>(verify_ast(projected.ast, projected.inputs)),
-        "contextual region donor projection failed native verification");
-    ProgramGenome child;
-    child.ast = variation_detail::splice(generated.genome.ast, site, donor.genome.ast,
-        donor.payload, site.occurrence_binder_ids.front());
-    require_membership(grammar, child);
-    check_global_binder_ids(child.ast);
-  }
 }
 
 void test_documented_custom_grammar() {
