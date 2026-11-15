@@ -96,7 +96,12 @@ These rules define `crossover`, `sites`, `limits` and `ranking`.
   derivation of the selected site fits, the child is not mutated; random draws
   already consumed for that child are not replayed.
 - `limits.site_depth` counts nested grammar invocations, excluding lowering
-  scaffolds.
+  scaffolds. For an ambiguous grammar the site depth of a program is that of
+  the derivation the population import reconstructs (the first matching
+  production at each step), not the shallowest derivation. A program that
+  only an ambiguous later production derives within the cap is therefore
+  over it. When every draw is read back over the cap, the run is rejected
+  naming `limits.site_depth`, its value and the depth reconstructed.
 - A run with `limits.site_depth > 0` and no initial
   population generates its own: the first program generated from `seed`,
   `seed + 1`, ... that verifies and fits the per-program
@@ -187,7 +192,11 @@ a program of its own whose first locals are its bindings. A genome is rejected w
 skeleton. With `limits.site_depth` above 0, a grammar with no program whose
 derivation nests at most `site_depth` grammar invocations on one path is
 rejected, and the message names the fewest invocations a derivation needs
-and that 0 disables the cap. A supplied initial member whose reconstructed
+and that 0 disables the cap. This proof uses the grammar's `max_depth`,
+while a phase has only the depth its layout leaves after the program
+envelope. A phase with no program within the cap at its own depth is
+rejected before generation, naming `limits.site_depth`, its value, the phase
+depth and the site depth it needs. A supplied initial member whose reconstructed
 derivation exceeds `site_depth` is rejected, naming its depth. Rejection is an error raised before the first generation: the run
 stops with a diagnostic that begins with
 `resident engine cannot admit this grammar or initial population:` and names

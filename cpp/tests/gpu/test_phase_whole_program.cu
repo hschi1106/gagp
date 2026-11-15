@@ -639,7 +639,22 @@ void check_site_depth() {
       "every derivation nests at least 9 grammar invocations on one path (limits.site_depth 0 disables the cap)")!=std::string::npos,label+error);
  }
  require_same(traces[0],traces[1],"phase_site_depth_9.json site depth 9");
- std::cout<<"limits.site_depth: ambiguous reconstructions redrawn or rejected by name, too shallow a cap rejected at admission, on CPU and GPU\n";
+ // phase_site_depth_budget: neg(neg(neg(x))) in one invocation, or neg(neg(x))
+ // in three. The program envelope leaves the phase a depth of 3, where only
+ // the second fits: site depth 3 runs, and site depth 2 is rejected on both
+ // owners naming the cap, the phase depth and the depth it needs.
+ const auto budget=load("phase_site_depth_budget.json");
+ const auto budget_cases=cli_detail::decode_fitness_cases_json(cli_detail::JsonParser(cases_json(*budget),{true,64}).parse());
+ std::vector<Trace> budget_traces;
+ for(const int site_depth:{3,2})for(const bool gpu:{false,true}) {
+  std::optional<Trace> traced;const auto error=run(budget_cases,configure(budget,site_depth,gpu),nullptr,traced);
+  const auto label=std::string("phase_site_depth_budget.json site depth ")+std::to_string(site_depth)+(gpu?" GPU: ":" CPU: ");
+  if(site_depth==3){require(error.empty(),label+error);budget_traces.push_back(*traced);}
+  else require(error.find("no program within limits.site_depth 2 at the depth 3 of phase 0 (search_limits max_depth 6 less the "
+      "program envelope): it needs limits.site_depth 3 (limits.site_depth 0 disables the cap)")!=std::string::npos,label+error);
+ }
+ require_same(budget_traces[0],budget_traces[1],"phase_site_depth_budget.json site depth 3");
+ std::cout<<"limits.site_depth: ambiguous reconstructions redrawn or rejected by name, too shallow a cap rejected by name, on CPU and GPU\n";
 }
 // The two language restrictions of the resident engine: a sequence constant
 // domain and a nonterminal reached under two binder environments (Step under

@@ -92,6 +92,23 @@ std::vector<ProgramGenome> generate_phase_initial_population(
  std::vector<PhaseTreeNode> nodes(capacity);std::vector<int> origins(capacity);std::vector<Value> constants(capacity);
  std::vector<PhaseTreeNode> shared_nodes(capacity);std::vector<int> shared_origins(capacity);std::vector<Value> shared_constants(capacity);
  std::vector<PhaseGeneSite> shared_sites(capacity);
+ // Admission proves a program within the site depth at search_limits
+ // max_depth, but a phase has only the depth its layout leaves (the program
+ // envelope takes the rest). A phase with no program at its own depth within
+ // the site depth is a configuration error, named with the depth it needs.
+ for(int k=0;k<slots;++k) {
+  if(minimum(k,site_depth)<long(grammar::kNoGrammarId))continue;
+  const int depth=int(layout.slots[k].max_depth);int needed=0;
+  try {
+   const auto wide=compile_phase_variation_grammar(grammar,layout.slots[k].nonterminal,grammar.search_limits().max_depth,15,&input_names);
+   for(int l=site_depth+1;!needed && l<wide.logical_depth_count && depth>0 && depth<wide.depth_count;++l)
+    if(wide.minimum[(std::size_t(wide.root_expression)*wide.depth_count+depth)*wide.logical_depth_count+l]!=grammar::kNoGrammarId)needed=l;
+  } catch(const std::invalid_argument&) {}
+  phase_layout_require(false,"no program within limits.site_depth "+std::to_string(site_depth)+" at the depth "+std::to_string(depth)+
+      " of phase "+std::to_string(k)+" (search_limits max_depth "+std::to_string(grammar.search_limits().max_depth)+
+      " less the program envelope): "+(needed?"it needs limits.site_depth "+std::to_string(needed):std::string("no site depth up to 15 suffices"))+
+      " (limits.site_depth 0 disables the cap)");
+ }
  // An ambiguous grammar derives some programs two ways, and the importer
  // reconstructs the first derivation, which may nest more grammar invocations
  // than the generated one. A member whose reconstruction exceeds the site
