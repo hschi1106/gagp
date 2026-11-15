@@ -22,7 +22,15 @@ bool is_binary_expr(NodeKind kind) {
          kind == NodeKind::CALL_TRUNC_DIV0 || kind == NodeKind::CALL_TRUNC_MOD0 ||
          kind == NodeKind::CALL_IDIV0 || kind == NodeKind::CALL_IMOD0 ||
          kind == NodeKind::CALL_CONCAT || (kind == NodeKind::CALL_INDEX || kind == NodeKind::CALL_INDEX_NONNEGATIVE || kind == NodeKind::CALL_INDEX_CLAMPED_OR_ZERO) || kind == NodeKind::CALL_APPEND ||
-         kind == NodeKind::CALL_PREPEND || kind == NodeKind::CALL_FIND || kind == NodeKind::CALL_CONTAINS;
+         kind == NodeKind::CALL_PREPEND || kind == NodeKind::CALL_FIND || kind == NodeKind::CALL_CONTAINS ||
+         kind == NodeKind::CALL_INDEX_MOD ||
+         kind == NodeKind::CALL_RANGE ||
+         kind == NodeKind::CALL_STRIP_CHARS ||
+         kind == NodeKind::CALL_LSTRIP_CHARS ||
+         kind == NodeKind::CALL_RSTRIP_CHARS ||
+         kind == NodeKind::CALL_STARTSWITH ||
+         kind == NodeKind::CALL_ENDSWITH ||
+         kind == NodeKind::CALL_REMOVE_AT;
 }
 
 bool is_expr_kind(NodeKind kind) {
@@ -37,6 +45,12 @@ bool is_expr_kind(NodeKind kind) {
          kind == NodeKind::CALL_IS_LETTER || kind == NodeKind::CALL_IS_DIGIT || kind == NodeKind::CALL_IS_SPACE ||
          kind == NodeKind::CALL_IS_VOWEL || kind == NodeKind::CALL_TO_LOWER || kind == NodeKind::CALL_TO_UPPER ||
          kind == NodeKind::CALL_TO_STRING || kind == NodeKind::CALL_SINGLETON ||
+         kind == NodeKind::CALL_INSERT ||
+         kind == NodeKind::CALL_SET_AT ||
+         kind == NodeKind::CALL_STRIP ||
+         kind == NodeKind::CALL_LSTRIP ||
+         kind == NodeKind::CALL_RSTRIP ||
+         kind == NodeKind::CALL_CAPITALIZE ||
          kind == NodeKind::BOUND_VAR;
 }
 

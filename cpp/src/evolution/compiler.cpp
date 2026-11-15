@@ -848,6 +848,20 @@ class Compiler {
       case NodeKind::CALL_TO_LOWER:
       case NodeKind::CALL_TO_UPPER:
       case NodeKind::CALL_TO_STRING:
+      case NodeKind::CALL_INSERT:
+      case NodeKind::CALL_REMOVE_AT:
+      case NodeKind::CALL_SET_AT:
+      case NodeKind::CALL_INDEX_MOD:
+      case NodeKind::CALL_RANGE:
+      case NodeKind::CALL_STRIP:
+      case NodeKind::CALL_LSTRIP:
+      case NodeKind::CALL_RSTRIP:
+      case NodeKind::CALL_STRIP_CHARS:
+      case NodeKind::CALL_LSTRIP_CHARS:
+      case NodeKind::CALL_RSTRIP_CHARS:
+      case NodeKind::CALL_STARTSWITH:
+      case NodeKind::CALL_ENDSWITH:
+      case NodeKind::CALL_CAPITALIZE:
       case NodeKind::CALL_SINGLETON: {
         std::size_t next = idx + 1;
         const int argc = node_prefix_arity(node);
