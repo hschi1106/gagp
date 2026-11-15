@@ -185,6 +185,7 @@ and variation reject a candidate with more and draw or try again.
 | `search_limits.max_depth` | 64 |
 | `search_limits.max_nodes` | 2048 |
 | Nodes of one phase (in the whole-program layout, of the whole program) | 1024 |
+| Effective node limit of the whole-program layout | min(`search_limits.max_nodes`, 1024), because the program is one phase in a row of 1024 nodes. A larger `max_nodes` is accepted, but generation, crossover and mutation stay within the row and an initial member over it is rejected, identically on both engines |
 | `search_limits.max_nodes` of a Program-entry grammar | 512 |
 | Program inputs | 64 |
 | Grammar locals referenced by the grammar | 16 |
