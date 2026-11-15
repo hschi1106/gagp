@@ -545,6 +545,123 @@ bool test_physical_memo_capacity() {
                "GPU did not time out on the 129th memo insertion");
 }
 
+// CPU exposes no remaining fuel, so GPU fuel use is checked as the CPU's exact
+// boundary: success with the fuel the GPU used, a timeout with one less.
+bool same_observation(const BytecodeProgram& program, int fuel, const ExecResult& cpu,
+                      const Observed& gpu, const std::string& label) {
+  if (cpu.is_error) {
+    return check(gpu.is_error && gpu.error == err_code_name(cpu.err.code),
+                 label + ": GPU error differs from CPU " + err_code_name(cpu.err.code));
+  }
+  if (!check(!gpu.is_error && gpu.tag == static_cast<int>(cpu.value.tag) &&
+                 gpu.bits == encoded_bits(cpu.value),
+             label + ": GPU value differs from CPU")) return false;
+  const int used = fuel - gpu.fuel_left;
+  const ExecResult exact = execute_bytecode_cpu(program, {}, used);
+  const ExecResult below = execute_bytecode_cpu(program, {}, used - 1);
+  return check(!exact.is_error && below.is_error && below.err.code == ErrCode::Timeout,
+               label + ": GPU fuel use differs from CPU");
+}
+
+// Plans above the former 128-frame/256-cell GPU profile run with the CPU's
+// results, fuel and capacity timeouts up to the language limits. Memo values
+// depend on their keys, so a wrong indexed hit changes the result.
+bool test_language_limit_regions() {
+  constexpr int fuel = 1000000;
+  BoundedRegionSegment frames = unary_segment(
+      ValueTag::Int, constant_phase(Value::from_int(7)),
+      load_phase(RegionSlotBank::Result, 0));
+  frames.plan.memoized = false;
+  frames.plan.limits = {kRegionFrameLimitMax, 0, 1};
+  frames.plan.coordinate_domains = {{{literal(0), literal(4000)}}};
+  const BytecodeProgram frame_exact = invocation(frames, kRegionFrameLimitMax - 1);
+  const BytecodeProgram frame_overflow = invocation(frames, kRegionFrameLimitMax);
+  if (!valid(frame_exact, "language frame limit") ||
+      !valid(frame_overflow, "frame beyond the language limit")) return false;
+  const ExecResult cpu_frame_exact = execute_bytecode_cpu(frame_exact, {}, fuel);
+  const ExecResult cpu_frame_overflow = execute_bytecode_cpu(frame_overflow, {}, fuel);
+  if (!check(!cpu_frame_exact.is_error && cpu_frame_overflow.is_error &&
+                 cpu_frame_overflow.err.code == ErrCode::Timeout,
+             "CPU control for 1024 frames") ||
+      !same_observation(frame_exact, fuel, cpu_frame_exact, probe(frame_exact, fuel), "1024 frames") ||
+      !same_observation(frame_overflow, fuel, cpu_frame_overflow, probe(frame_overflow, fuel), "1025th frame")) return false;
+
+  // f(n) = f(n-1) - f(n-2) + n stores one cell per coordinate 1..n.
+  BoundedRegionSegment chain = unary_segment(
+      ValueTag::Int, constant_phase(Value::from_int(7)),
+      phase({}, {ins_a(Opcode::Load, 0), ins_a(Opcode::Load, 1), ins(Opcode::Sub),
+                 ins_a(Opcode::Load, 2), ins(Opcode::Add), ins(Opcode::Return)},
+            {{slot(RegionSlotBank::Result, 1), 0}, {slot(RegionSlotBank::Result, 0), 1},
+             {slot(RegionSlotBank::State, 0), 2}}, 3),
+      {-2, -1});
+  chain.plan.coordinate_domains = {{{literal(0), literal(4000)}}};
+  for (const std::uint32_t cells : {gpu_detail::DLINEAR_REGION_MEMO + 1, 600u, 1000u}) {
+    chain.plan.limits = {kRegionFrameLimitMax, cells, 1};
+    for (const std::int64_t start : {std::int64_t{20}, std::int64_t{cells}, std::int64_t{cells} + 1}) {
+      const BytecodeProgram program = invocation(chain, start);
+      const std::string label = "indexed chain cells=" + std::to_string(cells) +
+                                " start=" + std::to_string(start);
+      if (!valid(program, label)) return false;
+      const ExecResult cpu = execute_bytecode_cpu(program, {}, fuel);
+      if (!check(cpu.is_error == (start > cells), label + ": CPU control") ||
+          !same_observation(program, fuel, cpu, probe(program, fuel), label) ||
+          !same_observation(program, fuel, cpu, probe(program, fuel, true), label + " (dense capability)")) return false;
+    }
+  }
+
+  // Two Int states with a literal domain larger than the cell limit: neither
+  // the dense table nor the linear scan applies.
+  const auto axis_offset = [](std::uint32_t source, std::int64_t amount) {
+    RegionStateTransition result = offset(amount);
+    result.source_state = source;
+    return result;
+  };
+  BoundedRegionSegment grid;
+  RegionPlan& plan = grid.plan;
+  plan.state_types = {ValueTag::Int, ValueTag::Int};
+  plan.result_type = ValueTag::Int;
+  plan.requests = {{{axis_offset(0, -1), axis_offset(1, 1)}},
+                   {{axis_offset(0, 0), axis_offset(1, -1)}}};
+  plan.memoized = true;
+  plan.duplicate_policy = DuplicatePolicy::Reject;
+  plan.coordinate_slots = {0, 1};
+  plan.coordinate_rank = {{0, 1}, {1, 1}};
+  plan.coordinate_domains = {{literal(0), literal(48)}, {literal(0), literal(48)}};
+  plan.coordinate_endpoint = DomainEndpoint::Exclusive;
+  grid.boundary = constant_phase(Value::from_int(0));
+  grid.base_predicate = zero_base_predicate();
+  grid.base_body = load_phase(RegionSlotBank::State, 1);
+  grid.combine = phase(
+      {Value::from_int(1000003)},
+      {ins_a(Opcode::Load, 0), ins_a(Opcode::Load, 1), ins(Opcode::Add),
+       ins_a(Opcode::Load, 2), ins(Opcode::Add), ins_a(Opcode::PushConst, 0),
+       ins(Opcode::Mod), ins(Opcode::Return)},
+      {{slot(RegionSlotBank::Result, 0), 0}, {slot(RegionSlotBank::Result, 1), 1},
+       {slot(RegionSlotBank::State, 1), 2}}, 3);
+  bool succeeded = false, exhausted = false;
+  for (const std::uint32_t cells : {300u, 2000u, kRegionCellLimitMax}) {
+    plan.limits = {kRegionFrameLimitMax, cells, 1};
+    using Start = std::pair<std::int64_t, std::int64_t>;
+    for (const Start& start : {Start{3, 4}, Start{30, 20}, Start{40, 20}, Start{47, 47}}) {
+      BytecodeProgram program;
+      program.consts = {Value::from_int(start.first), Value::from_int(start.second)};
+      program.code = {ins_a(Opcode::PushConst, 0), ins_a(Opcode::PushConst, 1),
+                      ins_a(Opcode::BoundedRegion, 0), ins(Opcode::Return)};
+      program.instruction_fuel = {0, 0, 1, 0};
+      program.bounded_region_segments.push_back(grid);
+      const std::string label = "indexed grid cells=" + std::to_string(cells) + " start=(" +
+                                std::to_string(start.first) + "," + std::to_string(start.second) + ")";
+      if (!valid(program, label)) return false;
+      const ExecResult cpu = execute_bytecode_cpu(program, {}, fuel);
+      succeeded |= !cpu.is_error && cells > gpu_detail::DLINEAR_REGION_MEMO && start.first >= 30;
+      exhausted |= cpu.is_error && cpu.err.code == ErrCode::Timeout;
+      if (!same_observation(program, fuel, cpu, probe(program, fuel), label)) return false;
+    }
+  }
+  return check(succeeded && exhausted,
+               "indexed grid did not cover both large memo hits and cell exhaustion");
+}
+
 RegionPhase increment_prepared_phase(std::uint32_t index) {
   return phase(
       {Value::from_int(1)},
@@ -970,6 +1087,7 @@ int main() {
   if (!test_exact_payload_memo_roots()) return 1;
   if (!test_physical_frame_capacity()) return 1;
   if (!test_physical_memo_capacity()) return 1;
+  if (!test_language_limit_regions()) return 1;
   if (!test_maximum_state_request_preparation_shape()) return 1;
   if (!test_mixed_children_rejected_before_combine()) return 1;
   if (!test_combine_fallback_must_match_child_tag()) return 1;

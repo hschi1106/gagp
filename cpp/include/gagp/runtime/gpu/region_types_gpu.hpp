@@ -9,8 +9,14 @@
 
 namespace gagp::gpu_detail {
 
-inline constexpr std::uint32_t DMAX_REGION_FRAMES = 128;
-inline constexpr std::uint32_t DMAX_REGION_MEMO = 256;
+// Frame and memo scratch is sized from the plans of each evaluated batch; the
+// only bounds are the language limits kRegionFrameLimitMax/kRegionCellLimitMax.
+// Plans declaring at most DLINEAR_REGION_MEMO cells keep the linear memo scan
+// (and may use the dense coordinate table). Larger plans add a per-lane
+// open-addressed index of cell ordinals, built once DREGION_MEMO_INDEX_BUILD
+// cells are stored; it only accelerates lookup, never changes which cell hits.
+inline constexpr std::uint32_t DLINEAR_REGION_MEMO = 256;
+inline constexpr std::uint32_t DREGION_MEMO_INDEX_BUILD = 32;
 inline constexpr std::uint32_t DMAX_REGION_STATES = 4;
 inline constexpr std::uint32_t DMAX_REGION_REQUESTS = 8;
 inline constexpr std::uint32_t DMAX_REGION_PREPARATIONS = 4;
@@ -25,6 +31,21 @@ static_assert(DMAX_REGION_PARAMETERS == kRegionParameterCapacity);
 static_assert(DMAX_REGION_BOUND_OPERANDS == kRegionBoundOperandCapacity);
 static_assert(DMAX_REGION_REQUEST_EXPRESSIONS ==
               DMAX_REGION_STATES * DMAX_REGION_REQUESTS);
+
+// Index slots for a plan's memo: zero on the linear path, otherwise the least
+// power of two at least twice the cell limit, so probing always finds a hole.
+#ifdef __CUDACC__
+__host__ __device__
+#endif
+inline constexpr std::uint32_t region_memo_index_slots(std::uint32_t cells) {
+  if (cells <= DLINEAR_REGION_MEMO) return 0;
+  std::uint32_t slots = 1;
+  while (slots < 2 * cells) slots *= 2;
+  return slots;
+}
+static_assert(region_memo_index_slots(DLINEAR_REGION_MEMO) == 0);
+static_assert(region_memo_index_slots(DLINEAR_REGION_MEMO + 1) == 1024);
+static_assert(region_memo_index_slots(kRegionCellLimitMax) == 2 * kRegionCellLimitMax);
 
 // Per-invocation values live in explicitly allocated device storage. A CUDA
 // thread owns one logical slice and reuses it only after the previous invocation
@@ -130,8 +151,10 @@ struct DRegionWorkspace {
   DRegionFrame* frames = nullptr;
   std::int64_t* memo_keys = nullptr;
   Value* memo_values = nullptr;
+  std::uint32_t* memo_index = nullptr; // Cell ordinal + 1 per slot; zero is empty.
   std::uint32_t frame_capacity = 0;
   std::uint32_t memo_capacity = 0;
+  std::uint32_t memo_index_capacity = 0; // Slots per lane.
   std::uint32_t slot_stride = 1;
   bool compact_frames = false;
   bool two_state_frames = false;

@@ -105,13 +105,16 @@ bool test_domain_and_index_proof() {
   declined=segment;declined.limits.cells=0;
   if(!check(!dense_coordinate_memo_cells(declined),"zero memo capacity"))return false;
   declined=segment;declined.state_count=declined.coordinate_count=1;
-  declined.coordinate_slots[0]=0;declined.limits.cells=DMAX_REGION_MEMO;
-  declined.coordinate_domains[0]={literal(INT64_MIN),literal(INT64_MIN+DMAX_REGION_MEMO-1)};
-  if(!check(dense_coordinate_memo_cells(declined)==DMAX_REGION_MEMO,"maximum inclusive dense extent"))return false;
-  declined.coordinate_domains[0].upper=literal(INT64_MIN+DMAX_REGION_MEMO);
+  declined.coordinate_slots[0]=0;declined.limits.cells=DLINEAR_REGION_MEMO;
+  declined.coordinate_domains[0]={literal(INT64_MIN),literal(INT64_MIN+DLINEAR_REGION_MEMO-1)};
+  if(!check(dense_coordinate_memo_cells(declined)==DLINEAR_REGION_MEMO,"maximum inclusive dense extent"))return false;
+  declined.coordinate_domains[0].upper=literal(INT64_MIN+DLINEAR_REGION_MEMO);
   if(!check(!dense_coordinate_memo_cells(declined),"inclusive extent one beyond capacity"))return false;
   declined.coordinate_endpoint=DomainEndpoint::Exclusive;
-  if(!check(dense_coordinate_memo_cells(declined)==DMAX_REGION_MEMO,"maximum exclusive dense extent"))return false;
+  if(!check(dense_coordinate_memo_cells(declined)==DLINEAR_REGION_MEMO,"maximum exclusive dense extent"))return false;
+  // Indexed plans keep their sparse hash index instead of a dense table.
+  declined.limits.cells=DLINEAR_REGION_MEMO+1;
+  if(!check(!dense_coordinate_memo_cells(declined),"indexed memo plan declines the dense table"))return false;
   declined=segment;declined.coordinate_endpoint=DomainEndpoint::Exclusive;
   if(!check(dense_coordinate_memo_cells(declined)==4,"exclusive endpoint product"))return false;
   declined.coordinate_domains[0].upper=declined.coordinate_domains[0].lower;

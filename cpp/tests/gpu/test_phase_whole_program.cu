@@ -337,7 +337,7 @@ int main() { try {
  // A bounded region reached through one entry alternative's template: every
  // member, with or without the region, shares the whole-program layout.
  check("cpp/tests/fixtures/phase_mixed_root.json",Fixture::Templates);
- // A 1024-cell memo table exceeds the GPU evaluator's region capacity.
+ // Each of these grammars is one fixed program, so there is nothing to search.
  for(const char* grammar:{"configs/grammar_definitions/bounded_memo.json","configs/grammar_definitions/bounded_sequence.json",
      "configs/grammar/examples/acyclic_memo.json","configs/grammar/examples/changed_recursive_split.json"})
   check(grammar,Fixture::Regions,false);

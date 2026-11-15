@@ -120,8 +120,8 @@ offending value:
   size. Generation and variation reject a candidate with more than 4 bounded
   regions (`phase_region_count`), as they reject one over the node budget.
 - The owners' constructors: population size, program inputs, phase count and,
-  on the GPU, the genotype workspace and the evaluator's local, frame and
-  memo capacities of the first member.
+  on the GPU, the genotype workspace and the evaluator's local capacity for
+  the first member.
 
 A child that reads a local before native definite assignment would define it
 is rejected: crossover tries its next site, mutation keeps the crossed child,

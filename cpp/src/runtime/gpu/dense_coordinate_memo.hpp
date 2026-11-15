@@ -11,7 +11,7 @@ __host__ __device__ inline unsigned dense_coordinate_memo_cells(const DRegionSeg
   const auto capacity=segment.limits.cells;
   if(!segment.memoized || segment.progress!=RegionProgressKind::Coordinates ||
       !segment.state_count || segment.state_count>DMAX_REGION_STATES ||
-      segment.coordinate_count!=segment.state_count || !capacity || capacity>DMAX_REGION_MEMO ||
+      segment.coordinate_count!=segment.state_count || !capacity || capacity>DLINEAR_REGION_MEMO ||
       (segment.coordinate_endpoint!=DomainEndpoint::Inclusive &&
        segment.coordinate_endpoint!=DomainEndpoint::Exclusive))return 0;
   unsigned seen=0, product=1;

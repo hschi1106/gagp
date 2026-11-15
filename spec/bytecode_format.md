@@ -111,9 +111,9 @@ leading zeroes.
 
 Plan limits are finite integral JSON numbers. A plan declares one to four
 states, at most eight requests, four preparations, 32 parameters, eight bound
-operands, and 32 request-expression phases. GPU upload additionally limits
-frames to 128 and memo cells to 256; exceeding that profile is a capability error,
-not a request to clamp or fall back to CPU.
+operands, 32 request-expression phases, 1,024 frames and 4,096 memo cells.
+Verification rejects larger declarations on both engines; no engine clamps a
+limit or falls back to the other engine.
 
 Each phase contains ordinary program fields plus explicit bindings from a plan
 bank/slot to a local. Banks are validated by phase role. Every success path has

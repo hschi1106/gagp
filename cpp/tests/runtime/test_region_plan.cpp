@@ -223,6 +223,11 @@ bool test_valid_general_plans() {
   zero_cell_memo.limits.cells = 0;
   gagp::validate_region_plan(zero_cell_memo);
 
+  RegionPlan language_limits = sparse_memo_plan();
+  language_limits.limits.frames = gagp::kRegionFrameLimitMax;
+  language_limits.limits.cells = gagp::kRegionCellLimitMax;
+  gagp::validate_region_plan(language_limits);
+
   for (ValueTag type : public_types()) {
     gagp::validate_region_plan(typed_auxiliary_plan(type));
   }
@@ -332,6 +337,12 @@ bool test_bounds_and_capacity_rejections() {
   if (!rejects_mutation(base, [](RegionPlan& plan) {
         plan.bound_operand_count = gagp::kRegionBoundOperandCapacity + 1;
       }, "bound operands beyond capacity are rejected")) return false;
+  if (!rejects_mutation(base, [](RegionPlan& plan) {
+        plan.limits.frames = gagp::kRegionFrameLimitMax + 1;
+      }, "frame limit beyond the language limit is rejected")) return false;
+  if (!rejects_mutation(sparse_memo_plan(), [](RegionPlan& plan) {
+        plan.limits.cells = gagp::kRegionCellLimitMax + 1;
+      }, "cell limit beyond the language limit is rejected")) return false;
   if (!rejects_mutation(base, [](RegionPlan& plan) {
         plan.request_expression_types.assign(
             plan.state_types.size() * plan.requests.size() + 1, ValueTag::Int);

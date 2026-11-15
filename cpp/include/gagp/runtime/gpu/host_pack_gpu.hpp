@@ -46,6 +46,7 @@ struct DeviceArena {
   DRegionFrame* d_region_frames = nullptr;
   std::int64_t* d_region_memo_keys = nullptr;
   Value* d_region_memo_values = nullptr;
+  std::uint32_t* d_region_memo_index = nullptr;
   DProgramMeta* d_metas = nullptr;
   Value* d_shared_case_local_vals = nullptr;
   unsigned char* d_shared_case_local_set = nullptr;

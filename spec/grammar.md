@@ -125,9 +125,11 @@ windows and unproved transitions are rejected.
 Execution uses an explicit bounded frame stack. Boundary and base selection
 precede memo lookup. On a miss, preparations run once, requests complete in
 source order, and combine runs after every child succeeds. Frame and memo
-overflow yield `Timeout`. CPU storage may grow only to declared limits; the
-GPU profile additionally rejects plans beyond its documented capacities before
-upload. No production path invokes a target-specific interpreter.
+overflow yield `Timeout`. A plan declares at most 1,024 frames and 4,096 memo
+cells, a language limit enforced by plan validation for both engines. CPU
+storage may grow only to declared limits; GPU scratch is sized from the declared
+limits of the evaluated plans. No production path invokes a target-specific
+interpreter.
 
 ## Removed release-1 forms
 

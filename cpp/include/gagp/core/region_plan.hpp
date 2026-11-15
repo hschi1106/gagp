@@ -13,6 +13,11 @@ inline constexpr std::uint32_t kRegionPlanVersion = 1;
 inline constexpr std::uint32_t kRegionParameterCapacity = 32;
 inline constexpr std::uint32_t kRegionPreparationCapacity = 4;
 inline constexpr std::uint32_t kRegionBoundOperandCapacity = 8;
+// Language limits on a plan's declared frames and memo cells. Both engines
+// reject larger declarations during plan validation, so every accepted plan
+// runs on CPU and GPU alike; GPU scratch is sized from the evaluated plans.
+inline constexpr std::uint32_t kRegionFrameLimitMax = 1024;
+inline constexpr std::uint32_t kRegionCellLimitMax = 4096;
 
 enum class RegionProgressKind : std::uint8_t { Coordinates, SequenceWindows };
 enum class RegionBoundKind : std::uint8_t { Literal, Operand };

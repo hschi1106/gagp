@@ -112,9 +112,10 @@ host and device representations are described in [payload.md](payload.md).
   (opcode 28) over a general `RegionPlan`. Hidden locals are reused once their
   expression ends, without changing instructions or fuel.
 - The CPU and GPU interpreters execute the same verified bytecode and region
-  plans with the same event order, fuel charges and errors. CUDA uses
-  fixed-capacity descriptors and rejects a plan beyond its capacity before
-  upload; GPU fitness sessions keep their region frame and memo workspace
+  plans with the same event order, fuel charges and errors. Plan validation
+  limits a region to 1,024 frames and 4,096 memo cells on both engines, and
+  the GPU sizes its scratch from the declared limits of the evaluated plans.
+  GPU fitness sessions keep their region frame and memo workspace
   (512 MiB) between evaluations but never carry memoized answers across
   programs.
 

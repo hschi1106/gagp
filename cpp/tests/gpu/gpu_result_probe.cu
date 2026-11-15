@@ -166,9 +166,12 @@ std::string probe(const BytecodeProgram& program, const CaseBindings& inputs, in
   upload(packed.region_bindings, &device.d_region_bindings);
   std::uint32_t region_frame_capacity = 0;
   std::uint32_t region_memo_capacity = 0;
+  std::uint32_t region_memo_index_capacity = 0;
   for (const auto& segment : packed.region_segments) {
     region_frame_capacity = std::max(region_frame_capacity, segment.limits.frames);
     region_memo_capacity = std::max(region_memo_capacity, segment.limits.cells);
+    region_memo_index_capacity = std::max(region_memo_index_capacity,
+                                          region_memo_index_slots(segment.limits.cells));
   }
   const std::size_t region_memo_key_capacity =
       static_cast<std::size_t>(region_memo_capacity) * DMAX_REGION_STATES;
@@ -184,12 +187,18 @@ std::string probe(const BytecodeProgram& program, const CaseBindings& inputs, in
     checked(cudaMalloc(reinterpret_cast<void**>(&device.d_region_memo_values),
                        sizeof(Value) * region_memo_capacity));
   }
+  if (region_memo_index_capacity) {
+    checked(cudaMalloc(reinterpret_cast<void**>(&device.d_region_memo_index),
+                       sizeof(std::uint32_t) * region_memo_index_capacity));
+  }
   DRegionWorkspace region_workspace{};
   region_workspace.frames = device.d_region_frames;
   region_workspace.memo_keys = device.d_region_memo_keys;
   region_workspace.memo_values = device.d_region_memo_values;
   region_workspace.frame_capacity = region_frame_capacity;
   region_workspace.memo_capacity = region_memo_capacity;
+  region_workspace.memo_index = device.d_region_memo_index;
+  region_workspace.memo_index_capacity = region_memo_index_capacity;
 #ifdef GAGP_CAPTURE_DENSE_MEMO
   region_workspace.dense_coordinate_memo = dense_memo && dense_coordinate_memo_supported(packed);
 #endif

@@ -378,6 +378,14 @@ void validate_region_plan(const RegionPlan& plan) {
       static_cast<std::uint32_t>(std::numeric_limits<int>::max())) {
     throw std::invalid_argument("region entry fuel must be between 1 and INT_MAX");
   }
+  if (plan.limits.frames > kRegionFrameLimitMax) {
+    throw std::invalid_argument("region frame limit exceeds " +
+                                std::to_string(kRegionFrameLimitMax));
+  }
+  if (plan.limits.cells > kRegionCellLimitMax) {
+    throw std::invalid_argument("region cell limit exceeds " +
+                                std::to_string(kRegionCellLimitMax));
+  }
   if (!plan.memoized && plan.limits.cells != 0) {
     throw std::invalid_argument(
         "nonmemoized region requires canonical zero cell limit");

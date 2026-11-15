@@ -595,12 +595,8 @@ NativePhasePopulation::NativePhasePopulation(std::shared_ptr<const grammar::Comp
   BytecodeVerifyOptions options;options.max_locals_per_code=gpu_detail::MAX_LOCALS;options.max_stack_depth=gpu_detail::MAX_STACK;
   const auto verified=verify_bytecode(programs.back(),options);
   phase_layout_require(bool(verified),"cold GPU executable verification failed");
-  // Ordinary packing additionally checks physical region capacities. Retain
-  // those inexpensive checks explicitly before creating the private carrier.
-  for(const auto& segment:programs.back().bounded_region_segments) {
-   phase_layout_require(segment.plan.limits.frames<=gpu_detail::DMAX_REGION_FRAMES,"cold GPU executable frame capacity exceeded");
-   phase_layout_require(segment.plan.limits.cells<=gpu_detail::DMAX_REGION_MEMO,"cold GPU executable memo capacity exceeded");
-  }
+  // Verification validated each region plan's frame and cell limits; GPU
+  // evaluation sizes its region scratch from those declarations.
   impl_->members.fixed_stack_bounds.push_back(verified.verified.max_stack_depth);
   impl_->views_proven=impl_->views_proven && gpu_detail::view_program_supported(programs.back(),impl_->input_types);
   impl_->direct_root_proven=impl_->direct_root_proven && gpu_detail::direct_region_root_supported(programs.back());

@@ -691,8 +691,8 @@ bool pack_rejects(const BytecodeProgram& program, const std::string& label) {
 
 bool test_host_pack_validation_and_profile_limits() {
   BoundedRegionSegment maximum = unary_segment(Value::from_int(1));
-  maximum.plan.limits.frames = gpu_detail::DMAX_REGION_FRAMES;
-  maximum.plan.limits.cells = gpu_detail::DMAX_REGION_MEMO;
+  maximum.plan.limits.frames = kRegionFrameLimitMax;
+  maximum.plan.limits.cells = kRegionCellLimitMax;
   const BytecodeProgram maximum_program =
       invocation(std::move(maximum), {Value::from_int(1)});
   try {
@@ -703,18 +703,18 @@ bool test_host_pack_validation_and_profile_limits() {
                    packed.metas[0].region_count == 1 &&
                    packed.region_segments.size() == 1 &&
                    !packed.region_phases.empty(),
-               "host pack rejected the exact 128-frame/128-cell profile")) {
+               "host pack rejected the 1024-frame/4096-cell language limits")) {
       return false;
     }
   } catch (const std::invalid_argument& error) {
-    return check(false, "host pack rejected the exact profile limit: " +
+    return check(false, "host pack rejected the exact language limit: " +
                             std::string(error.what()));
   }
 
   BoundedRegionSegment too_many_frames = unary_segment(Value::from_int(1));
-  too_many_frames.plan.limits.frames = gpu_detail::DMAX_REGION_FRAMES + 1;
+  too_many_frames.plan.limits.frames = kRegionFrameLimitMax + 1;
   BoundedRegionSegment too_many_cells = unary_segment(Value::from_int(1));
-  too_many_cells.plan.limits.cells = gpu_detail::DMAX_REGION_MEMO + 1;
+  too_many_cells.plan.limits.cells = kRegionCellLimitMax + 1;
   BytecodeProgram malformed =
       invocation(unary_segment(Value::from_int(1)), {Value::from_int(1)});
   malformed.bounded_region_segments[0].plan.requests.clear();
@@ -735,10 +735,10 @@ bool test_host_pack_validation_and_profile_limits() {
   } catch (const std::invalid_argument&) {
     return pack_rejects(invocation(std::move(too_many_frames),
                                    {Value::from_int(1)}),
-                        "129 frames") &&
+                        "1025 frames") &&
            pack_rejects(invocation(std::move(too_many_cells),
                                    {Value::from_int(1)}),
-                        "129 cells") &&
+                        "4097 cells") &&
            pack_rejects(malformed, "malformed region plan");
   }
   return check(false,
@@ -899,8 +899,8 @@ bool test_production_capability_dispatch_sequence() {
     } else {
       const Value terminal = Value::from_int(100 + i);
       BoundedRegionSegment segment = unary_segment(terminal);
-      segment.plan.limits.frames = gpu_detail::DMAX_REGION_FRAMES;
-      segment.plan.limits.cells = gpu_detail::DMAX_REGION_MEMO;
+      segment.plan.limits.frames = kRegionFrameLimitMax;
+      segment.plan.limits.cells = kRegionCellLimitMax;
       BytecodeProgram generic =
           invocation(std::move(segment), {Value::from_int(2)});
       const std::string label =
@@ -1274,7 +1274,7 @@ bool test_verified_view_profile(bool direct = true, bool root = true) {
       auto segment=sequence_segment(ValueTag::IntList);
       segment.plan.result_type=ValueTag::Int;segment.plan.preparations.resize(1);
       segment.preparations.resize(1);segment.plan.requests.resize(2);
-      segment.plan.limits.frames=gpu_detail::DMAX_REGION_FRAMES;
+      segment.plan.limits.frames=kRegionFrameLimitMax;
       segment.plan.requests[1].states[0]=window(0,endpoint(WindowEndpointKind::InteriorCut,0),endpoint(WindowEndpointKind::End));
       segment.base_body=constant_phase(Value::from_int(p+1));
       segment.combine=phase({}, {ins_a(Opcode::Load,0),ins_a(Opcode::Load,1),ins(Opcode::Add),ins(Opcode::Return)},
