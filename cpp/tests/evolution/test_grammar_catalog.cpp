@@ -41,7 +41,7 @@ int main() {
           "integer ASCII letter overload missing");
     check(catalog.resolve("is_letter(Char)->Bool").lowering_node == gagp::evo::NodeKind::CALL_IS_LETTER,
           "character letter overload lost");
-    check(catalog.control_signatures().size() == 21, "control overload catalog incomplete");
+    check(catalog.control_signatures().size() == 22, "control overload catalog incomplete");
     for (const auto& signature : catalog.control_signatures()) {
       check(&catalog.resolve_control(signature.key) == &signature, "control lookup lost identity");
       const auto& native = node_descriptor(signature.lowering_node);
@@ -53,6 +53,18 @@ int main() {
     check(catalog.resolve_control("for_range(Int,Block)->Statement").requires_name,
           "ForRange lost index-name contract");
     rejects([&] { catalog.resolve_control("for_range(Float,Block)->Statement"); });
+    {
+      // The bounded loop is the last control key, so earlier control IDs keep
+      // their values.
+      const auto& loop = catalog.resolve_control("while_stmt(Int,Bool,Block)->Statement");
+      check(!loop.requires_name && loop.lowering_node == gagp::evo::NodeKind::WHILE_STMT &&
+                loop.arguments.size() == 3 && loop.arguments[0].value_type == RType::Int &&
+                loop.arguments[1].value_type == RType::Bool &&
+                loop.arguments[2].category == gagp::evo::NodeCategory::Block &&
+                loop.id + 1 == catalog.control_signatures().size(),
+            "while_stmt control contract");
+    }
+    rejects([&] { catalog.resolve_control("while_stmt(Int,Int,Block)->Statement"); });
     rejects([&] { catalog.resolve_control("return(Any)->Statement"); });
     const auto recursive = recursive_contract({RType::String, RType::Int}, RType::StringList, 3);
     check(recursive.arguments.size() == 11 && recursive.base_predicate == 2 &&

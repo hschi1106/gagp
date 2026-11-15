@@ -133,12 +133,12 @@ std::optional<ProgramGenome> generated(const grammar::CompiledGrammar& grammar,u
 // the region layout, so the population imports whole programs. ManyRegions: a
 // grammar that derives programs over the capacity of bounded regions per
 // program, which import refuses and generation and variation reject.
-enum class Fixture{Expressions,Statements,Lets,Regions,Captures,Traversals,Templates,RegionFallback,Ranges,ManyRegions,Builtins,BuiltinStatements};
+enum class Fixture{Expressions,Statements,WhileStatements,Lets,Regions,Captures,Traversals,Templates,RegionFallback,Ranges,ManyRegions,Builtins,BuiltinStatements};
 // `fixture` is relative to the repository root. Without `search`, only
 // lowering parity runs (the GPU evaluator rejects the grammar's region limits).
 // Without `vary`, the grammar has one member, so no search can vary it.
 void check(const char* fixture,Fixture mode,bool search=true,bool vary=true) {
- const bool statements=mode==Fixture::Statements || mode==Fixture::BuiltinStatements;
+ const bool statements=mode==Fixture::Statements || mode==Fixture::WhileStatements || mode==Fixture::BuiltinStatements;
  const auto compiled=std::make_shared<const grammar::CompiledGrammar>(grammar::compile_grammar(
      grammar::load_definition(std::string(GAGP_REPOSITORY_ROOT "/")+fixture)));
  std::vector<std::string> names;for(const auto& input:compiled->inputs())names.push_back(input.name);
@@ -192,6 +192,7 @@ void check(const char* fixture,Fixture mode,bool search=true,bool vary=true) {
  if(statements) {
   for(auto kind:{NodeKind::FOR_RANGE,NodeKind::IF_STMT,NodeKind::ASSIGN,NodeKind::RETURN,NodeKind::BLOCK_NIL,NodeKind::VAR,NodeKind::IF_EXPR})
    require(kinds.count(int(kind)),"statement fixture did not exercise node kind "+std::to_string(int(kind)));
+  require(mode!=Fixture::WhileStatements || kinds.count(int(NodeKind::WHILE_STMT)),"while fixture did not exercise while_stmt");
   require(programs>=64 && rejected>0,"statement fixture must mix verified and undefined-local programs: "+std::to_string(programs)+"/"+std::to_string(rejected));
   if(mode==Fixture::BuiltinStatements) {
    // Undefined-local rejections thin the verified sample; the expression fixture
@@ -365,6 +366,9 @@ int main() { try {
  // Unit productions inline into their callers, in expression and statement grammars.
  check("cpp/tests/fixtures/phase_units.json",Fixture::Templates);
  check("cpp/tests/fixtures/phase_unit_statements.json",Fixture::Statements);
+ // while_stmt with evolved and constant bounds (one negative), conditions that
+ // the body changes, and nesting with for_range and if_stmt.
+ check("cpp/tests/fixtures/phase_while_statements.json",Fixture::WhileStatements);
  // Repeated holes share one derivation: recursive, skewed in depth, with a
  // constant in the fill, forwarded through a nested template, and under a let.
  check("cpp/tests/fixtures/phase_repeated.json",Fixture::Templates);

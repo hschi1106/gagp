@@ -100,10 +100,26 @@ literal nonterminals for every type (`Source.Literal.Int`, ...).
 Every nonterminal declares the variables visible in it (`scope`), and a
 `{"bound": name}` expression may only read a variable in scope. Operations
 that introduce variables, such as `let` and the traversals, bind them for their
-body; statements (`assign`, `if_stmt`, `for_range`, `return`) build whole
-programs with locals. The [list-sum walkthrough](list-sum-grammar.md) explains
+body; statements (`assign`, `if_stmt`, `for_range`, `while_stmt`, `return`)
+build whole programs with locals. The [list-sum walkthrough](list-sum-grammar.md) explains
 binding and scopes step by step with a traversal. To let a program overwrite an input, use
 `input_name` on its assignment instead of `name`.
+
+`while_stmt(Int,Bool,Block)` is a bounded `while` loop. It takes a bound, a
+condition and a body, and it always terminates: it stops quietly after `bound`
+iterations or as soon as the condition is false, and the program continues.
+This is the shape of the guarded loops in published G3P grammars, where a
+`while` body ends with `if loopBreak > loopBreakConst: break`. Such a loop
+becomes:
+
+```json
+{"control": "while_stmt(Int,Bool,Block)->Statement", "type": "Int",
+ "args": [{"constant": {"type": "Int", "values": ["100"]}},
+          {"ref": "Bool"}, {"ref": "Body"}]}
+```
+
+A constant bound is usual. The exact semantics, including a negative bound,
+are in [spec/grammar.md](../../spec/grammar.md#program-grammar).
 
 Set `"variation": false` on a nonterminal to keep its occurrences out of
 crossover and mutation sites, for example to freeze a program skeleton while

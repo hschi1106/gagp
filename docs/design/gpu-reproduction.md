@@ -47,9 +47,9 @@ in [Resident admission](../../spec/search_config.md#resident-admission).
   members do not all fit the region template, is imported again as one phase
   holding the whole program. An expression entry is lowered and completed by
   the native program terminator (`patch_whole_program`); a Program entry
-  lowers its statements (`assign`, `return`, `if_stmt`, `for_range`, blocks,
-  up to 16 grammar locals) exactly as the native compiler does, including its
-  first-use local order.
+  lowers its statements (`assign`, `return`, `if_stmt`, `for_range`,
+  `while_stmt`, blocks, up to 16 grammar locals) exactly as the native
+  compiler does, including its first-use local order.
 
 Initial population generation (`generate_phase_initial_population`) applies
 the same rule to its prototype program.

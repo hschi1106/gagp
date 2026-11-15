@@ -27,6 +27,7 @@ constexpr std::array<NodeDescriptor, k_node_kind_count> k_descriptors{{
     NODE(ASSIGN, "assign", Statement, 1, Name, None, StatementAssign, Assign, false),
     NODE(IF_STMT, "if_stmt", Statement, 3, Unused, None, StatementIf, IfStatement, false),
     NODE(FOR_RANGE, "for_range", Statement, 2, Name, None, StatementForRange, ForRange, false),
+    NODE(WHILE_STMT, "while_stmt", Statement, 3, Unused, None, StatementWhile, While, false),
     NODE(RETURN, "return", Statement, 1, Unused, None, StatementReturn, Return, false),
     NODE(CONST, "const", Expression, 0, Constant, None, ExpressionConst, Constant, true),
     NODE(VAR, "var", Expression, 0, Name, None, ExpressionVar, Variable, true),

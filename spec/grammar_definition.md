@@ -438,7 +438,8 @@ The catalog records the existing AST categories independently of value types:
 Program, Block, Statement and Expression. They are syntax categories, not new
 runtime values. Exact control declarations cover `program(Block)->Program`,
 `block_nil()->Block`, `block_cons(Statement,Block)->Block`,
-`if_stmt(Bool,Block,Block)->Statement`, `for_range(Int,Block)->Statement`, and
+`if_stmt(Bool,Block,Block)->Statement`, `for_range(Int,Block)->Statement`,
+`while_stmt(Int,Bool,Block)->Statement` (bound, condition and body), and
 independent `assign(T)->Statement` and `return(T)->Statement` signatures for each
 of the eight value types. Assignment and ForRange require a target/index name.
 Their categories and prefix arities are checked against native node descriptors.

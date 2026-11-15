@@ -44,13 +44,32 @@ Block[R; L] ::= [Stmt[R; L], ...]
 Stmt[R; L] ::= Assign(x:T, E[T; L; empty])
              | IfStmt(E[Bool; L; empty], Block[R; L], Block[R; L])
              | ForRange(i, E[Int; L; empty], Block[R; L + {i:Int}])
+             | WhileStmt(E[Int; L; empty], E[Bool; L; empty], Block[R; L])
              | Return(E[R; L; empty])
 ```
 
 `ForRange` evaluates its bound once, requires a non-negative `Int`, and
-visits indices from zero while the index is less than the bound. Reading an
-undefined local yields `NameError`; falling through without `Return` yields
-`ValueError`.
+visits indices from zero while the index is less than the bound. A bound that
+is negative or not an `Int` yields `TypeError` before the first iteration.
+A large bound is not an error by itself, but the loop stops with `Timeout`
+when fuel runs out. Reading an undefined local yields `NameError`, and falling
+through without `Return` yields `ValueError`.
+
+`WhileStmt(bound, condition, body)` is a bounded loop. It evaluates its bound
+once on entry with the `ForRange` rule above, so a negative bound is a
+`TypeError`, and a zero bound never evaluates the condition. A hidden counter
+then starts at zero. Before every iteration the loop leaves normally when the
+counter has reached the bound. Otherwise it evaluates the condition in the
+current environment, which includes the body's earlier assignments, and leaves
+normally when the condition is false. Otherwise it runs the body and adds one
+to the counter. Reaching the bound is not an error: execution continues after
+the loop. There is no `break`, no `continue` and no index variable. Fuel is
+charged for the bound, the condition, the body and the loop's own instructions
+like any other code, and running out of fuel yields `Timeout`.
+
+The bound and the condition are typed in the environment before the loop. As
+for a `ForRange`, the body may run zero times, so its assignments do not define
+locals after the loop or in the condition.
 
 ## Expression grammar
 
@@ -141,8 +160,8 @@ historical names to describe the intent they reproduce; names do not create
 native node kinds, runtime schemes, or compiler branches.
 
 Numeric AST kinds 53 through 70 are permanently unassigned. General region
-forms begin at 71, and the G3P builtin call kinds occupy 82 through 95
-(listed in [bytecode_format.md](./bytecode_format.md)). The normal AST decoder accepts only `ast-prefix-v2` and
+forms begin at 71, the G3P builtin call kinds occupy 82 through 95, and
+`WhileStmt` is kind 96 (listed in [bytecode_format.md](./bytecode_format.md)). The normal AST decoder accepts only `ast-prefix-v2` and
 rejects these holes.
 
 ## Generation, membership, and variation
@@ -185,5 +204,5 @@ no conversion tool ships with GAGP.
 ## Unsupported constructs
 
 The grammar has no user functions, first-class closures or phase bodies,
-classes, attributes, exceptions, imports, I/O, `while`, `break`,
-`continue`, generic lists, `CharList`, tuples, or product values.
+classes, attributes, exceptions, imports, I/O, unbounded `while` loops,
+`break`, `continue`, generic lists, `CharList`, tuples, or product values.

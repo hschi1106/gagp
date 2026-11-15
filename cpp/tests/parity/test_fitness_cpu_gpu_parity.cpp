@@ -389,6 +389,56 @@ BytecodeProgram make_compiled_for_range_sum_program_with_direct_bound(const Valu
   return gagp::evo::compile_for_eval(genome);
 }
 
+// x = 0; k = 0; while_stmt(bound, k < limit, { x = x + k; k = k + 1 }); return x.
+// The limit is an Int, or an IntList whose length is the limit.
+BytecodeProgram make_compiled_while_sum_program(const Value& bound, const Value& limit) {
+  using gagp::evo::AstNode;
+  using gagp::evo::AstProgram;
+  using gagp::evo::NodeKind;
+  using gagp::evo::ProgramGenome;
+
+  AstProgram program;
+  program.names = {"x", "k"};
+  program.consts = {Value::from_int(0), bound, limit, Value::from_int(1)};
+  program.nodes = {
+      AstNode{NodeKind::PROGRAM, 0, 0},
+      AstNode{NodeKind::BLOCK_CONS, 0, 0},
+      AstNode{NodeKind::ASSIGN, 0, 0},
+      AstNode{NodeKind::CONST, 0, 0},
+      AstNode{NodeKind::BLOCK_CONS, 0, 0},
+      AstNode{NodeKind::ASSIGN, 1, 0},
+      AstNode{NodeKind::CONST, 0, 0},
+      AstNode{NodeKind::BLOCK_CONS, 0, 0},
+      AstNode{NodeKind::WHILE_STMT, 0, 0},
+      AstNode{NodeKind::CONST, 1, 0},
+      AstNode{NodeKind::LT, 0, 0},
+      AstNode{NodeKind::VAR, 1, 0},
+  };
+  if (limit.tag == gagp::ValueTag::IntList) program.nodes.push_back(AstNode{NodeKind::CALL_LEN, 0, 0});
+  const std::vector<AstNode> tail{
+      AstNode{NodeKind::CONST, 2, 0},
+      AstNode{NodeKind::BLOCK_CONS, 0, 0},
+      AstNode{NodeKind::ASSIGN, 0, 0},
+      AstNode{NodeKind::ADD, 0, 0},
+      AstNode{NodeKind::VAR, 0, 0},
+      AstNode{NodeKind::VAR, 1, 0},
+      AstNode{NodeKind::BLOCK_CONS, 0, 0},
+      AstNode{NodeKind::ASSIGN, 1, 0},
+      AstNode{NodeKind::ADD, 0, 0},
+      AstNode{NodeKind::VAR, 1, 0},
+      AstNode{NodeKind::CONST, 3, 0},
+      AstNode{NodeKind::BLOCK_NIL, 0, 0},
+      AstNode{NodeKind::BLOCK_CONS, 0, 0},
+      AstNode{NodeKind::RETURN, 0, 0},
+      AstNode{NodeKind::VAR, 0, 0},
+      AstNode{NodeKind::BLOCK_NIL, 0, 0},
+  };
+  program.nodes.insert(program.nodes.end(), tail.begin(), tail.end());
+  ProgramGenome genome;
+  genome.ast = program;
+  return gagp::evo::compile_for_eval(genome);
+}
+
 BytecodeProgram make_compiled_if_stmt_branch_program(const Value& condition) {
   using gagp::evo::AstNode;
   using gagp::evo::AstProgram;
@@ -2647,6 +2697,32 @@ int main() {
                                     penalty,
                                     "compiled FOR_RANGE bool bound TypeError parity")) {
       return 1;
+    }
+    // while_stmt: the condition turns false, the bound is reached, a zero
+    // bound, a false condition at entry, a negative bound (TypeError, as for
+    // FOR_RANGE), a condition over a list payload and fuel exhaustion.
+    const auto list = gagp::payload::make_int_list_value({
+        Value::from_int(10), Value::from_int(20), Value::from_int(30)});
+    const struct {
+      Value bound, limit, expected;
+      double fitness;
+      int fuel;
+      const char* label;
+    } while_cases[] = {
+        {Value::from_int(10), Value::from_int(4), Value::from_int(6), 0.0, 20000, "condition turns false"},
+        {Value::from_int(3), Value::from_int(100), Value::from_int(3), 0.0, 20000, "bound reached"},
+        {Value::from_int(0), Value::from_int(100), Value::from_int(0), 0.0, 20000, "zero bound"},
+        {Value::from_int(10), Value::from_int(0), Value::from_int(0), 0.0, 20000, "false at entry"},
+        {Value::from_int(-1), Value::from_int(100), Value::from_int(0), -penalty, 20000, "negative bound TypeError"},
+        {Value::from_int(100), list, Value::from_int(3), 0.0, 20000, "list-length condition"},
+        {Value::from_int(1000000000), Value::from_int(1000000000), Value::from_int(0), -penalty, 2000, "fuel exhaustion"},
+    };
+    for (const auto& item : while_cases) {
+      if (!check_single_cpu_gpu_exact(make_compiled_while_sum_program(item.bound, item.limit),
+                                      item.expected, item.fitness, item.fuel, kParityBlocksize, penalty,
+                                      std::string("compiled WHILE_STMT ") + item.label + " CPU/GPU parity")) {
+        return 1;
+      }
     }
   }
 
