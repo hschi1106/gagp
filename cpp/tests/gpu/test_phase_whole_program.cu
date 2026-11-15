@@ -325,6 +325,27 @@ void check_declined(const char* fixture) {
  }
  std::cout<<fixture<<": rejected at admission on CPU and GPU\n";
 }
+// Unit inlining with weights near the largest finite value: S -> A | 2 with
+// A -> 0 | 1 each weighted 1e308. Mutation regenerates every root, so every
+// final member is a fresh draw, which must reach all three programs.
+void check_unit_weight_overflow() {
+ const auto compiled=std::make_shared<const grammar::CompiledGrammar>(grammar::compile_grammar(
+     grammar::load_definition(GAGP_REPOSITORY_ROOT "/cpp/tests/fixtures/phase_unit_weights.json")));
+ const auto cases=cli_detail::decode_fitness_cases_json(cli_detail::JsonParser(cases_json(*compiled),{true,64}).parse());
+ EvolutionConfig cfg;cfg.population_size=64;cfg.generations=1;cfg.seed=3;cfg.elite_count=0;cfg.mutation_rate=1;
+ cfg.compiled_grammar=compiled;cfg.fuel=compiled->execution_limits().fuel;cfg.penalty=1000;cfg.gpu_blocksize=32;
+ std::vector<Trace> traces;
+ for(const bool gpu:{false,true}) {
+  auto run=cfg;run.eval_engine=gpu?EvalEngine::GPU:EvalEngine::CPU;
+  const auto result=evolve_population(cases,run);std::set<std::int64_t> values;
+  for(const auto& member:result.final_population)
+   for(const auto& node:member.genome.ast.nodes)if(node.kind==NodeKind::CONST)values.insert(member.genome.ast.consts.at(node.i0).i);
+  require(values==std::set<std::int64_t>{0,1,2},std::string("unit weight overflow lost alternatives on ")+(gpu?"GPU":"CPU"));
+  traces.push_back(trace(result));
+ }
+ require_same(traces[0],traces[1],"unit weight overflow");
+ std::cout<<"phase_unit_weights.json: overflowing unit weights keep every alternative on CPU and GPU\n";
+}
 }  // namespace
 
 int main() { try {
@@ -345,6 +366,7 @@ int main() { try {
  // Unit productions inline into their callers, in expression and statement grammars.
  check("cpp/tests/fixtures/phase_units.json",Fixture::Templates);
  check("cpp/tests/fixtures/phase_unit_statements.json",Fixture::Statements);
+ check_unit_weight_overflow();
  // Repeated holes share one derivation: recursive, skewed in depth, with a
  // constant in the fill, forwarded through a nested template, and under a let.
  check("cpp/tests/fixtures/phase_repeated.json",Fixture::Templates);

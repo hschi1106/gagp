@@ -1,0 +1,97 @@
+{
+ "format_version": "grammar-definition-v2",
+ "entry": {
+  "nonterminal": "S",
+  "type": "Int"
+ },
+ "inputs": [],
+ "search_limits": {
+  "max_nodes": 8,
+  "max_depth": 5
+ },
+ "execution_limits": {
+  "fuel": 32
+ },
+ "nonterminals": [
+  {
+   "id": "S",
+   "type": "Int",
+   "scope": [],
+   "alternatives": [
+    {
+     "id": "lit",
+     "weight": 1e+308,
+     "expression": {
+      "constant": {
+       "type": "Int",
+       "values": [
+        "2"
+       ]
+      }
+     }
+    },
+    {
+     "id": "a",
+     "weight": 1.7e+308,
+     "expression": {
+      "ref": "A"
+     }
+    },
+    {
+     "id": "b",
+     "weight": 1.7e+308,
+     "expression": {
+      "ref": "B"
+     }
+    }
+   ]
+  },
+  {
+   "id": "A",
+   "type": "Int",
+   "scope": [],
+   "alternatives": [
+    {
+     "id": "c",
+     "weight": 1,
+     "expression": {
+      "ref": "C"
+     }
+    }
+   ]
+  },
+  {
+   "id": "B",
+   "type": "Int",
+   "scope": [],
+   "alternatives": [
+    {
+     "id": "c",
+     "weight": 1,
+     "expression": {
+      "ref": "C"
+     }
+    }
+   ]
+  },
+  {
+   "id": "C",
+   "type": "Int",
+   "scope": [],
+   "alternatives": [
+    {
+     "id": "x",
+     "weight": 1,
+     "expression": {
+      "constant": {
+       "type": "Int",
+       "values": [
+        "0"
+       ]
+      }
+     }
+    }
+   ]
+  }
+ ]
+}

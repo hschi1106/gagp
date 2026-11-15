@@ -112,7 +112,11 @@ These rules define `crossover`, `sites`, `limits` and `ranking`.
   `w_unit * w / W`, where `W` sums the referenced alternatives that remain. An
   alternative that would revisit a nonterminal of the chain without deriving a
   node is dropped, and an expression reached through two chains is one
-  alternative carrying both weights. One draw then equals choosing through the
+  alternative carrying both weights. When `W`, or the sum of the two weights
+  of such an expression, would exceed the largest finite double, the weights
+  being summed are first scaled by the same power of two, which keeps every
+  ratio, so no alternative loses its weight. Finite sums are not scaled. One
+  draw then equals choosing through the
   chain one reference at a time whenever every alternative fits the budget. An
   inlined chain is one grammar invocation: its root node carries one site, of
   the outermost nonterminal, which is the only variation site of the chain and

@@ -144,6 +144,19 @@ void check_unit_productions() {
   while(profile.expressions[e].kind==PhaseExpressionKind::Alias)e=profile.expressions[e].children[0];
   require(profile.expressions[e].kind!=PhaseExpressionKind::Reference,"a unit production survived inlining");
  }
+ // Weights near the largest finite value: the inner total of A (two weights
+ // of 1e308) and the diamond merge through A and B (1.7e308 each) overflow
+ // unless the expansion scales; the expanded ratios stay exact.
+ const auto expanded=[&](const char* fixture) {
+  const auto g=grammar::compile_grammar(grammar::load_definition(std::string(GAGP_REPOSITORY_ROOT "/cpp/tests/fixtures/")+fixture));
+  const auto p=compile_phase_grammar(g,g.entry(),4);const auto& nt=p.nonterminals.at(g.entry());std::vector<double> w;
+  for(int i=0;i<nt.production_count;++i){w.push_back(p.productions[nt.production_offset+i].weight);require(std::isfinite(w.back()) && w.back()>0,"expanded weight not positive and finite");}
+  std::sort(w.begin(),w.end());return w;
+ };
+ const auto overflow=expanded("phase_unit_weights.json");
+ require(overflow.size()==3 && overflow[0]==overflow[1] && overflow[2]==2*overflow[0],"overflowing unit production weights");
+ const auto diamond=expanded("phase_unit_weights_diamond.json");
+ require(diamond.size()==2 && std::abs(diamond[1]/diamond[0]-3.4)<1e-12,"overflowing diamond weights");
 }
 // Imported members of a grammar with repeated holes name every copy after its
 // own occurrence; a copy whose fill differs from the first is rejected.

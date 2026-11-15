@@ -470,8 +470,16 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
     std::vector<char> on_path(out.nonterminals.size());std::size_t expanded=0;
     std::function<std::vector<PhaseProduction>(int)> expand=[&](int id)->std::vector<PhaseProduction> {
       std::vector<PhaseProduction> result;on_path[id]=1;
+      // Weights are finite, but a sum of them can overflow. Both fallbacks
+      // run only on overflow and scale by powers of two, which keeps every
+      // ratio exact, so finite sums keep their weights bit for bit.
+      double list_scale=1;  // halved on each merge overflow, for every weight
       const auto add=[&](int expression,double weight) {
-        for(auto& p:result)if(p.expression==expression){p.weight+=weight;return;}
+        weight*=list_scale;
+        for(auto& p:result)if(p.expression==expression) {
+          if(!std::isfinite(p.weight+weight)){for(auto& q:result)q.weight*=0.5;weight*=0.5;list_scale*=0.5;}
+          p.weight+=weight;return;
+        }
         if(++expanded>65536)fail("unit production inlining exceeds the resident capacity of 65536 alternatives");
         result.push_back({expression,weight});
       };
@@ -480,9 +488,14 @@ inline HostPhaseGrammar compile_phase_grammar(const grammar::CompiledGrammar& gr
         const auto p=out.productions[nt.production_offset+i];const auto& r=out.expressions[resolve(p.expression)];
         if(r.kind!=PhaseExpressionKind::Reference){add(p.expression,p.weight);continue;}
         if(on_path[r.target])continue;
-        const auto inner=expand(r.target);double total=0;
+        const auto inner=expand(r.target);double total=0,scale=1;
         for(const auto& q:inner)total+=q.weight;
-        for(const auto& q:inner)add(q.expression,p.weight*(q.weight/total));
+        if(!std::isfinite(total)) {
+          double maximum=0;for(const auto& q:inner)maximum=std::max(maximum,q.weight);
+          int exponent=0;std::frexp(maximum,&exponent);scale=std::ldexp(1.0,-exponent);
+          total=0;for(const auto& q:inner)total+=q.weight*scale;
+        }
+        for(const auto& q:inner)add(q.expression,p.weight*(q.weight*scale/total));
       }
       on_path[id]=0;return result;
     };
