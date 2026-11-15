@@ -326,6 +326,10 @@ class StructuralVerifier {
       case NodeKind::FOR_RANGE:
         if (!parse_expression(next, 1, &next) || !parse_block(next, &next)) return false;
         break;
+      case NodeKind::WHILE_STMT:
+        if (!parse_expression(next, 1, &next) || !parse_expression(next, 1, &next) ||
+            !parse_block(next, &next)) return false;
+        break;
       default:
         return fail_bool(VerifyCode::UnexpectedNodeCategory, index, node_path(index),
                          "unknown statement form");

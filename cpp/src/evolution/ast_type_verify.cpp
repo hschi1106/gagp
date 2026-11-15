@@ -653,6 +653,26 @@ class TypedVerifier {
       body_locals[node.i0] = RType::Int;
       return verify_block(bound.next, &body_locals, binders);
     }
+    if (node.kind == NodeKind::WHILE_STMT) {
+      const std::size_t bound_index = node_index + 1;
+      const ExprResult bound = verify_expression(bound_index, *locals, binders, false);
+      if (!result_) return false;
+      if (bound.type != RType::Int) {
+        return fail_bool(VerifyCode::TypeMismatch, bound_index, node_path(bound_index),
+                         "WhileStmt bound must have type Int");
+      }
+      const std::size_t condition_index = bound.next;
+      const ExprResult condition = verify_expression(condition_index, *locals, binders, false);
+      if (!result_) return false;
+      if (condition.type != RType::Bool) {
+        return fail_bool(VerifyCode::TypeMismatch, condition_index, node_path(condition_index),
+                         "WhileStmt condition must have type Bool");
+      }
+      // Like a ForRange body, the body may run zero times, so its
+      // assignments never define a local after the loop.
+      TypeEnv body_locals = *locals;
+      return verify_block(condition.next, &body_locals, binders);
+    }
     return fail_bool(VerifyCode::TypeMismatch, node_index, node_path(node_index),
                      "statement has no typing rule");
   }

@@ -61,6 +61,12 @@ DepthResult compute_stmt_depth_prefix(const AstProgram& program, std::size_t idx
     const DepthResult body = compute_block_depth_prefix(program, bound.next);
     return {body.next, std::max(bound.max_expr_depth, body.max_expr_depth)};
   }
+  if (node.kind == NodeKind::WHILE_STMT) {
+    const DepthResult bound = compute_expr_depth_prefix(program, idx + 1);
+    const DepthResult cond = compute_expr_depth_prefix(program, bound.next);
+    const DepthResult body = compute_block_depth_prefix(program, cond.next);
+    return {body.next, std::max(bound.max_expr_depth, std::max(cond.max_expr_depth, body.max_expr_depth))};
+  }
   return {idx + 1, 0};
 }
 

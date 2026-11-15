@@ -59,6 +59,8 @@ PrimitiveCatalog::PrimitiveCatalog() {
       {{NodeCategory::Expression, RType::Bool}, block, block});
   control("for_range(Int,Block)->Statement", NodeKind::FOR_RANGE, NodeCategory::Statement,
       {{NodeCategory::Expression, RType::Int}, block}, true);
+  control("while_stmt(Int,Bool,Block)->Statement", NodeKind::WHILE_STMT, NodeCategory::Statement,
+      {{NodeCategory::Expression, RType::Int}, {NodeCategory::Expression, RType::Bool}, block});
   for (auto type : value_types()) {
     control("assign(" + std::string(type_name(type)) + ")->Statement", NodeKind::ASSIGN,
         NodeCategory::Statement, {{NodeCategory::Expression, type}}, true);
