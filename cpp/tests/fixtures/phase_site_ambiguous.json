@@ -11,8 +11,8 @@
   }
  ],
  "search_limits": {
-  "max_nodes": 8,
-  "max_depth": 4
+  "max_nodes": 12,
+  "max_depth": 6
  },
  "execution_limits": {
   "fuel": 32
@@ -24,40 +24,41 @@
    "scope": [],
    "alternatives": [
     {
-     "id": "via",
+     "id": "p0",
      "weight": 1,
      "expression": {
       "signature": "neg(Int)->Int",
       "args": [
        {
-        "ref": "B"
+        "ref": "A"
        }
       ]
      }
     },
     {
-     "id": "direct",
+     "id": "p1",
      "weight": 1,
      "expression": {
       "signature": "neg(Int)->Int",
       "args": [
        {
-        "input": "x"
+        "signature": "add(Int,Int)->Int",
+        "args": [
+         {
+          "input": "x"
+         },
+         {
+          "ref": "A"
+         }
+        ]
        }
       ]
-     }
-    },
-    {
-     "id": "leaf",
-     "weight": 1,
-     "expression": {
-      "input": "x"
      }
     }
    ]
   },
   {
-   "id": "B",
+   "id": "A",
    "type": "Int",
    "scope": [],
    "alternatives": [
@@ -66,6 +67,21 @@
      "weight": 1,
      "expression": {
       "input": "x"
+     }
+    },
+    {
+     "id": "add",
+     "weight": 1,
+     "expression": {
+      "signature": "add(Int,Int)->Int",
+      "args": [
+       {
+        "ref": "A"
+       },
+       {
+        "ref": "A"
+       }
+      ]
      }
     }
    ]

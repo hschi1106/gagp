@@ -495,10 +495,11 @@ void check_loop_locals() {
  }
  std::cout<<"phase_loop_locals: a for_range counts its bound and counter, 64 locals identical on CPU and GPU, 68 rejected on both\n";
 }
-// limits.site_depth. phase_site_ambiguous derives neg(x) directly (one
-// invocation) and through B (two), and the importer reconstructs the second.
-// At site depth 1 a generated neg(x) is redrawn, identically on both owners,
-// and a supplied neg(x) is rejected naming the depth. phase_site_depth_9
+// limits.site_depth. phase_site_ambiguous derives neg(add(x,x)) through p1
+// (two nested invocations) and through p0 (three), and the importer
+// reconstructs p0, the first production. At site depth 2 every generated
+// neg(add(x,x)) is redrawn, identically on both owners, and a supplied one is
+// rejected naming the depth. phase_site_depth_9
 // nests 9 invocations in its only program: admitted at site depth 9, and at
 // 8 rejected at admission on both owners, naming the depth it needs.
 void check_site_depth() {
@@ -518,20 +519,24 @@ void check_site_depth() {
   const auto ambiguous=load("phase_site_ambiguous.json");
   const auto cases=cli_detail::decode_fitness_cases_json(cli_detail::JsonParser(cases_json(*ambiguous),{true,64}).parse());
   std::vector<std::string> names{"x"};
-  const auto population=repro::generate_phase_initial_population(*ambiguous,grammar::entry_request(*ambiguous),names,16,0,1);
-  for(const auto& member:population)require(member.ast.nodes.size()==1,"phase_site_ambiguous.json: a member over site depth 1 was kept");
+  const auto population=repro::generate_phase_initial_population(*ambiguous,grammar::entry_request(*ambiguous),names,16,0,2);
+  for(const auto& member:population)for(const auto& node:member.ast.nodes)
+   require(node.kind!=NodeKind::ADD,"phase_site_ambiguous.json: a member over site depth 2 as the import reads it was kept");
   std::vector<Trace> traces;
   for(const bool gpu:{false,true}) {
-   std::optional<Trace> traced;const auto error=run(cases,configure(ambiguous,1,gpu),nullptr,traced);
+   std::optional<Trace> traced;const auto error=run(cases,configure(ambiguous,2,gpu),nullptr,traced);
    require(error.empty(),std::string("phase_site_ambiguous.json")+(gpu?" GPU: ":" CPU: ")+error);traces.push_back(*traced);
   }
-  require_same(traces[0],traces[1],"phase_site_ambiguous.json site depth 1");
+  require_same(traces[0],traces[1],"phase_site_ambiguous.json site depth 2");
   std::optional<ProgramGenome> two;
-  for(unsigned seed=0;!two;++seed){auto g=generated(*ambiguous,seed);if(g && g->ast.nodes.size()==2)two=g;}
+  for(unsigned seed=0;!two;++seed){
+   auto g=generated(*ambiguous,seed);
+   if(g && std::count_if(g->ast.nodes.begin(),g->ast.nodes.end(),[](const AstNode& n){return n.kind==NodeKind::ADD;})==1)two=g;
+  }
   const std::vector<ProgramGenome> supplied(16,*two);
   for(const bool gpu:{false,true}) {
-   std::optional<Trace> traced;const auto error=run(cases,configure(ambiguous,1,gpu),&supplied,traced);
-   require(error.find("initial member 0 derives with 2 nested grammar invocations on one path, over limits.site_depth 1 (0 disables the cap)")!=
+   std::optional<Trace> traced;const auto error=run(cases,configure(ambiguous,2,gpu),&supplied,traced);
+   require(error.find("initial member 0 derives with 3 nested grammar invocations on one path, over limits.site_depth 2 (0 disables the cap)")!=
        std::string::npos,std::string("phase_site_ambiguous.json supplied")+(gpu?" GPU: ":" CPU: ")+error);
   }
  }
