@@ -80,13 +80,16 @@ seed.
 Measured on one RTX 3090 with the default search. Details in
 [benchmarks/README.md](../../benchmarks/README.md#recorded-results).
 
-- **GPU vs the CPU reference.** The same searches run 5x to 185x faster on
-  the GPU than on the single-threaded CPU reference engine (geometric mean
-  30x) with identical results.
-- **GPU vs ASGP.** On frozen ASGP-initialized populations of 16384 members
-  (30 tasks, seed 1), single-threaded ASGP took 95x longer than GAGP
-  (geometric mean. About 74x after correcting for machine contention during
-  the ASGP runs). ASGP is not part of this repository. This comparison is
+- **GPU vs the CPU reference.** On the 30 ASGP tasks at a population of 1024
+  (frozen ASGP-initialized populations, seed 1) the same searches run 14x to
+  298x faster on the GPU than on the single-threaded CPU reference engine
+  (geometric mean 108x), and on the six `psb1_g3p` problems 2.1x to 8.7x
+  faster, with identical results.
+- **GPU vs ASGP.** On frozen ASGP-initialized populations (30 tasks, 64
+  generations), single-threaded ASGP took 46x longer than GAGP at a
+  population of 1024 and 59x at 4096 (geometric mean over the tasks, mean of
+  5 seeds), and 73x at 16384 (one seed), after correcting the ASGP times for
+  machine contention. ASGP is not part of this repository. This comparison is
   thesis evidence, not a benchmark the repository reproduces. It compares
   speed on the same inputs, not search quality, and GAGP's search is not
   claimed to beat ASGP's.
@@ -94,8 +97,9 @@ Measured on one RTX 3090 with the default search. Details in
   generations, 5 seeds) GAGP solves 56 of 150 runs. The benchmark report prints
   the published ASGP counts beside them as context, not as a matched baseline.
 
-Where the GPU time goes: evaluation is about three quarters of search time
-and reproduction a few percent. The long tail of evaluation is single-lane
+Where the GPU time goes on those searches: evaluation is about nine tenths
+of search time, initialization (admission, the GPU session and the initial
+population) about 5% and reproduction about 2%. The long tail of evaluation is single-lane
 recursive list work replayed for the few cases whose intermediate lists
 overflow the per-lane workspace ([payload.md](payload.md)).
 

@@ -269,3 +269,49 @@ paper.
 The numbers below are for the commit that the report names.
 
 <!-- FREEZE-RESULTS-PSB1 -->
+
+One RTX 3090, GPU engine, the settings above, seeds 1 to 100. Success counts
+are from commit `456bd4bb`. The published columns are context, not a matched
+baseline (see [Differences from the original](#differences-from-the-original)).
+
+| Problem | GAGP solved /100 | Thesis tournament /100 | EuroGP 2017 tournament /100 | Median run (s) |
+| --- | ---: | ---: | ---: | ---: |
+| `smallest` | 100 | 97 | 96 | 3.2 |
+| `median` | 18 | 48 | 62 | 3.8 |
+| `count_odds` | 0 | 0 | 0 | 17.9 |
+| `small_or_large` | 1 | 8 | 25 | 15.0 |
+| `replace_space_with_newline` | 0 | 0 | 0 | 32.6 |
+| `negative_to_zero` | 57 | 79 | 94 | 50.7 |
+
+For every problem the solved count equals the train-perfect count, so no
+counted failure is a program that fits the training cases and fails the test
+cases. The 600 runs took 3.6 hours in total, with CPU jobs running beside
+them.
+
+GAGP is below the thesis on `median` and `negative_to_zero`, and on
+`small_or_large` the difference is small (two-sided Fisher exact p = 0.035,
+not corrected for six tests). The cause on `median` is early convergence, not
+the engine. In 52 of the 100 runs the best program of generation 0
+(`res0 = in1`, 43 of 100 training cases wrong) is never improved, and the
+whole population becomes that program within 5 generations. On seeds 1 to 30
+the thesis settings solve 4 runs, tournament size 2 solves 17, mutation
+probability 0.5 solves 30, and both changes together solve 15 (CPU engine,
+same commit). The first generation here is drawn from the grammar's
+probabilities and almost every member returns the initial 0, where the thesis
+starts from PTC2 trees of up to 250 nodes. `negative_to_zero` shows the same
+pattern in 14 runs, and its fitness function also differs from the thesis.
+`replace_space_with_newline` ends every run at the fitness of generation 0.
+
+GPU engine against the CPU reference engine on one thread, seeds 1 to 3 at
+full length, commit `89b515db`. The 18 pairs of result files are identical
+(champion, fitness, test verdict and the whole history). The CPU runs shared
+the machine with other jobs, so their times are upper bounds.
+
+| Problem | CPU (s, 3 runs) | GPU (s, 3 runs) | CPU / GPU |
+| --- | ---: | ---: | ---: |
+| `smallest` | 21.4 | 10.1 | 2.1 |
+| `median` | 32.0 | 12.6 | 2.5 |
+| `count_odds` | 504.5 | 58.2 | 8.7 |
+| `small_or_large` | 156.3 | 61.0 | 2.6 |
+| `replace_space_with_newline` | 221.7 | 101.2 | 2.2 |
+| `negative_to_zero` | 956.4 | 156.3 | 6.1 |

@@ -84,6 +84,22 @@ identical populations, fitness values and champions on both engines).
   shape of the guarded `while` loops of published G3P grammars
   ([spec/grammar.md](spec/grammar.md#program-grammar)).
 
+**Performance** (search results unchanged)
+
+- `append` to the newest list of the generic GPU arena writes one cell instead
+  of copying the list ([payload design](docs/design/payload.md#on-the-gpu)).
+- A string operand on the GPU is found by a binary search of the external
+  table and then a scan of the lane's strings from the newest one. The
+  `psb1_g3p` string problems ran slower on the GPU than on the CPU before
+  this change.
+- The GPU builtin dispatch keeps the frequent builtins inlined in the
+  interpreter loop and routes the G3P builtins, `append` and the charged
+  string builders to one function that is not inlined. Adding the new builtins
+  inline had slowed list-heavy `asgp30` tasks by up to 25%.
+- The GPU session context is created on a helper thread while the host admits
+  the grammar. The search and its results do not depend on that thread.
+- The run history exports the champion only when it changes.
+
 ## 3.0.1
 
 Faster evaluation; search results are unchanged (65 golden runs, and the 30

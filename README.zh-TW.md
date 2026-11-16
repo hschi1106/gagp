@@ -104,10 +104,13 @@ python3 benchmarks/run.py run --suite psb1_g3p --quick
 
 ### 3. 速度快
 
-- **對 GAGP 自己的 CPU 參考引擎。** 同樣的搜尋，GPU 比單執行緒 CPU 快 5 到 185 倍
-  （幾何平均 30 倍），結果完全相同。
-- **對單執行緒的 ASGP。** 在 30 個任務、凍結的 16384 個成員 ASGP 初始族群上，
-  單執行緒 ASGP 花的時間是 GAGP 的 95 倍（幾何平均，修正機器競爭後約 74 倍）。
+- **對 GAGP 自己的 CPU 參考引擎。** 在 30 個 ASGP 任務、族群 1024 上，同樣的搜尋
+  GPU 比單執行緒 CPU 快 14 到 298 倍（幾何平均 108 倍）。在六個 `psb1_g3p` 題目上
+  快 2.1 到 8.7 倍。結果完全相同。
+- **對單執行緒的 ASGP。** 在 30 個任務、64 代、凍結的 ASGP 初始族群上，
+  單執行緒 ASGP 花的時間在族群 1024 時是 GAGP 的 46 倍、4096 時是 59 倍
+  （對任務取幾何平均，再對 5 個 seed 取平均），16384 時是 73 倍（1 個 seed）。
+  ASGP 的時間已修正機器競爭。
   ASGP 與這些族群不在本儲存庫中，所以這項比較有記錄但無法在此重現
   （[細節](docs/design/research-mainline.md#results)）。
 
@@ -142,6 +145,10 @@ python3 benchmarks/run.py report
 ```
 
 完整執行在 GPU 上約 9 分鐘。`--engine cpu` 執行相同的搜尋並得到相同的次數，只是很慢。
+
+在六個 `psb1_g3p` 題目上，用已發表的 G3P 設定各跑 100 次，GAGP 有三題和已發表的次數持平，
+三題較低。各題次數與 `median` 落差的原因見
+[`psb1_g3p` 的結果](benchmarks/psb1_g3p/README.md#recorded-results)。
 
 ## 限制
 

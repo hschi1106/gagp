@@ -31,8 +31,8 @@ python3 benchmarks/run.py report                     # rewrite logs/bench/asgp30
 ```
 
 On an RTX 3090 the quick run takes about 10 seconds and the full suite about
-9 minutes. The CPU reference engine is 5 to 185 times slower on one thread
-(its quick run takes about 14 minutes), so use it with `--quick` or a few
+9 minutes. The CPU reference engine is one to two orders of magnitude slower on
+one thread (its quick run takes about 14 minutes), so use it with `--quick` or a few
 `--tasks`. `--jobs N` runs N CPU runs at once, which disturbs their timing.
 
 Runs land in `logs/bench/asgp30/<engine>/p<population>-g<generations>/<task>/s<seed>/`
@@ -126,3 +126,43 @@ The numbers below are for the commit that the report names. The release history
 of earlier measurements is in [VERSION.md](../VERSION.md).
 
 <!-- FREEZE-RESULTS -->
+
+One RTX 3090 and an Intel i9-10900K, commit `89b515db`, Release build without
+a profiler.
+
+**Default search.** `python3 benchmarks/run.py run` (30 tasks, seeds 1 to 5,
+population 1024, 64 generations) solves 56 of 150 runs in about 9 minutes
+(506 s of run time).
+
+**Against ASGP on one CPU thread.** The searches start from frozen
+ASGP-initialized populations and run 64 generations. ASGP and these
+populations are not part of the repository, so this table is recorded and not
+reproducible here. Each cell is the geometric mean over the 30 tasks of the
+ASGP time divided by the GAGP time.
+
+| Population | Seeds | Mean over seeds | Lowest seed | Highest seed |
+| ---: | ---: | ---: | ---: | ---: |
+| 1024 | 5 | 46.5 | 43.6 | 49.2 |
+| 4096 | 5 | 58.7 | 55.9 | 62.4 |
+| 16384 | 1 | 73.0 | | |
+
+The ASGP times of seed 1 were measured alone where available. The others are
+times from 8 concurrent ASGP runs divided by the measured contention factor
+1.260. Every GAGP run has the same champion and the same best program in every
+generation as the engine before release 3.0 on the same population.
+
+**Against the CPU reference engine.** On the same populations at 1024 members
+and seed 1, the GPU is 14 to 298 times faster than the CPU reference engine on
+one thread (geometric mean 108, CPU 16,594 s and GPU 102 s over the 30 tasks),
+and the 30 pairs of results are identical. Nine CPU runs shared the machine,
+one pinned core each.
+
+**Where the time goes.** Shares of the search time summed over the 30 tasks
+(seed 1). Initialization is the time before the first evaluation: admission,
+the GPU session and the initial population.
+
+| Population | Evaluation | Reproduction | Initialization | Other |
+| ---: | ---: | ---: | ---: | ---: |
+| 1024 | 91.1% | 2.4% | 4.7% | 1.8% |
+| 4096 | 91.0% | 1.9% | 5.0% | 2.1% |
+| 16384 | 90.9% | 1.9% | 5.2% | 2.0% |

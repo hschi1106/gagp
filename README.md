@@ -124,14 +124,16 @@ The grammar format is explained in the
 
 ### 3. It is fast
 
-- **Against GAGP's CPU reference engine.** The same searches run 5x to 185x
-  faster on the GPU than on one CPU thread (geometric mean 30x), with identical
-  results.
-- **Against ASGP on one CPU thread.** On frozen ASGP-initialized populations of
-  16384 members (30 tasks), single-threaded ASGP took 95x longer than GAGP
-  (geometric mean, about 74x after correcting for machine contention). ASGP
-  and these populations are not part of this repository, so this comparison is
-  recorded but not reproducible here
+- **Against GAGP's CPU reference engine.** On the 30 ASGP tasks at a
+  population of 1024 the GPU runs the same searches 14x to 298x faster than
+  one CPU thread (geometric mean 108x), and on the six `psb1_g3p` problems
+  2.1x to 8.7x faster, with identical results.
+- **Against ASGP on one CPU thread.** On frozen ASGP-initialized populations
+  (30 tasks, 64 generations), single-threaded ASGP took 46x longer than GAGP
+  at a population of 1024 and 59x at 4096 (geometric mean over the tasks,
+  mean of 5 seeds), and 73x at 16384 (one seed). ASGP times are corrected for
+  machine contention. ASGP and these populations are not part of this
+  repository, so this comparison is recorded but not reproducible here
   ([details](docs/design/research-mainline.md#results)).
 
 Run both engines on the same tasks and compare them. The report lists the
@@ -169,6 +171,11 @@ python3 benchmarks/run.py report
 
 The full run takes about 9 minutes on the GPU. `--engine cpu` runs the same
 searches and reaches the same counts, only slowly.
+
+On the six `psb1_g3p` problems with the published G3P settings (100 runs each),
+GAGP is level with the published counts on three problems and below them on
+three. The counts and the cause found for `median` are in the
+[`psb1_g3p` results](benchmarks/psb1_g3p/README.md#recorded-results).
 
 ## Limits
 
