@@ -297,9 +297,12 @@ whole population becomes that program within 5 generations. On seeds 1 to 30
 the thesis settings solve 4 runs, tournament size 2 solves 17, mutation
 probability 0.5 solves 30, and both changes together solve 15 (CPU engine,
 same commit). The first generation here is drawn from the grammar's
-probabilities and almost every member returns the initial 0, where the thesis
-starts from PTC2 trees of up to 250 nodes. `negative_to_zero` shows the same
-pattern in 14 runs, and its fitness function also differs from the thesis.
+probabilities, and its members are wrong on 98.7 of the 100 training cases on
+average. The thesis starts from PTC2 trees of up to 250 nodes. `negative_to_zero` shows the same
+pattern: 14 runs never improve on generation 0, and on seeds 1 to 12 the thesis
+settings solve 5 runs and mutation probability 0.5 solves 10. Its fitness
+function also differs from the thesis. On `small_or_large` mutation
+probability 0.5 solved none of 5 seeds, so its cause is not known.
 `replace_space_with_newline` ends every run at the fitness of generation 0.
 
 GPU engine against the CPU reference engine on one thread, seeds 1 to 3 at
